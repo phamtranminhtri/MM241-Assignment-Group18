@@ -8,7 +8,7 @@ env = gym.make(
     "gym_cutting_stock/CuttingStock-v0",
     render_mode="human",  # Comment this line to disable rendering
 )
-NUM_EPISODES = 2
+NUM_EPISODES = 4
 
 if __name__ == "__main__":
     # Reset the environment
@@ -47,29 +47,29 @@ if __name__ == "__main__":
     #         ep += 1
     
     
-    policy = BFDPolicy()
-    ep = 0
-    policy_results = []
-    while ep < NUM_EPISODES:
-        action = policy.get_action(observation, info)
-        observation, reward, terminated, truncated, info = env.step(action)
+    # policy = Policy2312291()
+    # ep = 0
+    # policy_results = []
+    # while ep < NUM_EPISODES:
+    #     action = policy.get_action(observation, info)
+    #     observation, reward, terminated, truncated, info = env.step(action)
 
-        if terminated or truncated:
-            # print(info)
-            print(f"Episode {ep}: {info['filled_ratio']}")
-            policy_results.append(info)
-            observation, info = env.reset(seed=ep)
-            ep += 1
+    #     if terminated or truncated:
+    #         # print(info)
+    #         print(f"Episode {ep}: {info['filled_ratio']}")
+    #         policy_results.append(info)
+    #         observation, info = env.reset(seed=ep)
+    #         ep += 1
             
     # compare the results
-    equal, better = 0, 0
-    for i in range(NUM_EPISODES):
-        if gd_results[i]["filled_ratio"] == policy_results[i]["filled_ratio"]:
-            equal += 1
-        elif gd_results[i]["filled_ratio"] > policy_results[i]["filled_ratio"]:
-            better += 1
+    # equal, better = 0, 0
+    # for i in range(NUM_EPISODES):
+    #     if gd_results[i]["filled_ratio"] == policy_results[i]["filled_ratio"]:
+    #         equal += 1
+    #     elif gd_results[i]["filled_ratio"] > policy_results[i]["filled_ratio"]:
+    #         better += 1
             
-    print(f"Equal: {equal}, Better: {better}")
+    # print(f"Equal: {equal}, Better: {better}")
         
 
     # # Test RandomPolicy

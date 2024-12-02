@@ -260,121 +260,94 @@ class BranchAndBoundPolicy(Policy):
             return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
         
 
-
 class Policy2312291(Policy):
     def __init__(self):
-        # Initialize data structures to keep track of free rectangles in each stock
         self.free_rectangles = {}
-        self.previous_stock_states = None  # To detect episode changes
+        self.previous_stock_states = None
 
     def get_action(self, observation, info):
-        # Get the current list of stocks
         stocks = observation["stocks"]
-
-        # Detect if a new episode has started by comparing with previous stock states
-        if self.previous_stock_states is None or not self._stocks_equal(stocks, self.previous_stock_states):
-            # Reset free_rectangles for a new episode
+        
+        # Reset state for new episode
+        if self._is_new_episode(stocks):
             self.free_rectangles = {}
             for stock_idx, stock in enumerate(stocks):
                 stock_w, stock_h = self._get_stock_size_(stock)
                 self.free_rectangles[stock_idx] = [{
-                    "x": 0,
-                    "y": 0,
-                    "w": stock_w,
-                    "h": stock_h
+                    "x": 0, "y": 0, "w": stock_w, "h": stock_h
                 }]
-            # Create a deep copy of stocks
-            self.previous_stock_states = tuple(stock.copy() for stock in stocks)
-        # Get the list of products and stocks from the observation
-        products = observation["products"]
+            self.previous_stock_states = [stock.copy() for stock in stocks]
 
-        # Create a list of products with quantity > 0
+        products = observation["products"]
         available_products = [
             prod for prod in products if prod["quantity"] > 0
         ]
 
         if not available_products:
-            # No products left to place, end the episode
-            return {
-                "stock_idx": -1,
-                "size": (0, 0),
-                "position": (0, 0),
-            }
+            return {"stock_idx": -1, "size": (0, 0), "position": (0, 0)}
 
-        # Sort products by descending area (largest first)
+        # Sort by descending area
         available_products.sort(
             key=lambda p: p["size"][0] * p["size"][1], reverse=True
         )
 
-        # Try to place each product into stocks
+        best_placement = None
+        min_waste = float('inf')
+
+        # Try each product
         for prod in available_products:
-            prod_size = prod["size"]
-            prod_w, prod_h = prod_size
+            prod_w, prod_h = prod["size"]
 
-            # Try to place the product into one of the stocks
-            best_fit = None  # Keep track of the best placement found
-            min_waste = float('inf')  # Initialize minimum waste
-
+            # Try each stock
             for stock_idx, stock in enumerate(stocks):
-                # Get the list of free rectangles for this stock
                 free_rects = self.free_rectangles[stock_idx]
-
-                # Try to find a free rectangle where the product fits
+                
+                # Try each free rectangle
                 for rect in free_rects:
                     if prod_w <= rect["w"] and prod_h <= rect["h"]:
                         waste = rect["w"] * rect["h"] - prod_w * prod_h
                         if waste < min_waste:
-                            best_fit = {
+                            min_waste = waste
+                            best_placement = {
                                 "stock_idx": stock_idx,
                                 "position": (rect["x"], rect["y"]),
-                                "waste": waste
+                                "size": prod["size"]
                             }
-                            min_waste = waste
-                # Optional: Break early if perfect fit found
+                            if waste == 0:  # Perfect fit
+                                break
                 if min_waste == 0:
                     break
+            if min_waste == 0:
+                break
 
-            if best_fit is not None:
-                # Place the product in the best fit found
-                stock_idx = best_fit["stock_idx"]
-                pos_x, pos_y = best_fit["position"]
-                # Update the free rectangles for the stock
-                self._split_free_rectangle(
-                    stock_idx,
-                    pos_x,
-                    pos_y,
-                    prod_w,
-                    prod_h
-                )
-                # Return the action
-                return {
-                    "stock_idx": stock_idx,
-                    "size": prod_size,
-                    "position": (pos_x, pos_y),
-                }
+        if best_placement is not None:
+            stock_idx = best_placement["stock_idx"]
+            pos_x, pos_y = best_placement["position"]
+            prod_w, prod_h = best_placement["size"]
+            
+            # Update free rectangles
+            self._split_free_rectangle(stock_idx, pos_x, pos_y, prod_w, prod_h)
+            
+            return {
+                "stock_idx": stock_idx,
+                "size": best_placement["size"],
+                "position": best_placement["position"]
+            }
 
-        # If no placement is possible, return an action to end the episode
-        return {
-            "stock_idx": -1,
-            "size": (0, 0),
-            "position": (0, 0),
-        }
+        return {"stock_idx": -1, "size": (0, 0), "position": (0, 0)}
 
     def _split_free_rectangle(self, stock_idx, x, y, w, h):
-        # Remove the used rectangle and add new free rectangles
         new_free_rectangles = []
         for rect in self.free_rectangles[stock_idx]:
             if not self._rects_overlap(x, y, w, h, rect["x"], rect["y"], rect["w"], rect["h"]):
-                # No overlap, keep the rectangle
                 new_free_rectangles.append(rect)
             else:
-                # Split the rectangle into up to four smaller rectangles
                 self._split_rectangles(rect, x, y, w, h, new_free_rectangles)
         self.free_rectangles[stock_idx] = self._prune_free_rectangles(new_free_rectangles)
 
     def _split_rectangles(self, rect, x, y, w, h, new_free_rectangles):
         # Left split
-        if rect["x"] < x < rect["x"] + rect["w"]:
+        if rect["x"] < x:
             new_rect = {
                 "x": rect["x"],
                 "y": rect["y"],
@@ -385,7 +358,7 @@ class Policy2312291(Policy):
                 new_free_rectangles.append(new_rect)
 
         # Right split
-        if rect["x"] < x + w < rect["x"] + rect["w"]:
+        if x + w < rect["x"] + rect["w"]:
             new_rect = {
                 "x": x + w,
                 "y": rect["y"],
@@ -396,7 +369,7 @@ class Policy2312291(Policy):
                 new_free_rectangles.append(new_rect)
 
         # Top split
-        if rect["y"] < y < rect["y"] + rect["h"]:
+        if rect["y"] < y:
             new_rect = {
                 "x": rect["x"],
                 "y": rect["y"],
@@ -407,7 +380,7 @@ class Policy2312291(Policy):
                 new_free_rectangles.append(new_rect)
 
         # Bottom split
-        if rect["y"] < y + h < rect["y"] + rect["h"]:
+        if y + h < rect["y"] + rect["h"]:
             new_rect = {
                 "x": rect["x"],
                 "y": y + h,
@@ -418,20 +391,16 @@ class Policy2312291(Policy):
                 new_free_rectangles.append(new_rect)
 
     def _prune_free_rectangles(self, free_rectangles):
-        # Remove redundant rectangles
-        pruned_rects = []
+        pruned = []
         for rect in free_rectangles:
-            redundant = False
-            for other in free_rectangles:
-                if rect != other and self._is_rect_inside(rect, other):
-                    redundant = True
-                    break
-            if not redundant:
-                pruned_rects.append(rect)
-        return pruned_rects
+            if not any(self._is_rect_inside(rect, other) 
+                      for other in free_rectangles if rect != other):
+                pruned.append(rect)
+        return pruned
 
     def _rects_overlap(self, x1, y1, w1, h1, x2, y2, w2, h2):
-        return not (x1 + w1 <= x2 or x2 + w2 <= x1 or y1 + h1 <= y2 or y2 + h2 <= y1)
+        return not (x1 + w1 <= x2 or x2 + w2 <= x1 or 
+                   y1 + h1 <= y2 or y2 + h2 <= y1)
 
     def _is_rect_inside(self, inner, outer):
         return (inner["x"] >= outer["x"] and
@@ -439,11 +408,7 @@ class Policy2312291(Policy):
                 inner["x"] + inner["w"] <= outer["x"] + outer["w"] and
                 inner["y"] + inner["h"] <= outer["y"] + outer["h"])
 
-    def _stocks_equal(self, stocks_a, stocks_b):
-        # Utility method to compare two stock states
-        if len(stocks_a) != len(stocks_b):
-            return False
-        for stock_a, stock_b in zip(stocks_a, stocks_b):
-            if not np.array_equal(stock_a, stock_b):
-                return False
-        return True
+    def _is_new_episode(self, stocks):
+        if self.previous_stock_states is None:
+            return True
+        return all(np.all(stock <= -1) for stock in stocks)
