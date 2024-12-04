@@ -272,77 +272,101 @@ class CuttingStockEnv(gym.Env):
     #     return reward
 
 
-    def calculate_reward(self, action, valid_action, terminated):
-        """Calculate reward with balanced and normalized components."""
-        stock_idx = action["stock_idx"]
-        size = action["size"]
-        position = action["position"]
-        width, height = size
-        x, y = position
+    # def calculate_reward(self, action, valid_action, terminated):
+    #     """Calculate reward with balanced and normalized components."""
+    #     stock_idx = action["stock_idx"]
+    #     size = action["size"]
+    #     position = action["position"]
+    #     width, height = size
+    #     x, y = position
         
-        # Initialize reward
-        reward = 0.0
+    #     # Initialize reward
+    #     reward = 0.0
         
-        # 1. Invalid Action Penalty
-        if not valid_action:
-            return -1.0  # Standardized penalty
+    #     # 1. Invalid Action Penalty
+    #     if not valid_action:
+    #         return -1.0  # Standardized penalty
         
-        # 2. Area Utilization Reward (Normalized)
-        # product_area = width * height
-        # max_product_area = self.max_w * self.max_h
-        # area_reward = (product_area / max_product_area) * 1.0  # Scaled between 0 and 1
-        # reward += area_reward
+    #     # 2. Area Utilization Reward (Normalized)
+    #     # product_area = width * height
+    #     # max_product_area = self.max_w * self.max_h
+    #     # area_reward = (product_area / max_product_area) * 1.0  # Scaled between 0 and 1
+    #     # reward += area_reward
         
-        # 3. Waste Penalty (Normalized)
-        stock = self._stocks[stock_idx]
-        stock_area = np.sum(stock >= -1)  # Total usable area
-        used_area = np.sum(stock >= 0)    # Area with products
-        unused_area = stock_area - used_area
-        waste_penalty = -(unused_area / stock_area) * 0.5  # Scaled between -0.5 and 0
-        reward += waste_penalty
+    #     # 3. Waste Penalty (Normalized)
+    #     stock = self._stocks[stock_idx]
+    #     stock_area = np.sum(stock >= -1)  # Total usable area
+    #     used_area = np.sum(stock >= 0)    # Area with products
+    #     unused_area = stock_area - used_area
+    #     waste_penalty = -(unused_area / stock_area) * 0.5  # Scaled between -0.5 and 0
+    #     reward += waste_penalty
         
-        # 4. Compactness Bonus (Simplified and Normalized)
-        # Reward placing products closer to the center of the stock
-        # center_x, center_y = stock_area / 2, stock_area / 2
-        # product_center_x = x + width / 2
-        # product_center_y = y + height / 2
-        # distance_to_center = np.sqrt((product_center_x - center_x)**2 + (product_center_y - center_y)**2)
-        # max_distance = np.sqrt((self.max_w)**2 + (self.max_h)**2) / 2
-        # compactness = 1 - (distance_to_center / max_distance)  # Scaled between 0 and 1
-        # compactness_bonus = compactness * 0.5
-        # reward += compactness_bonus
+    #     # 4. Compactness Bonus (Simplified and Normalized)
+    #     # Reward placing products closer to the center of the stock
+    #     # center_x, center_y = stock_area / 2, stock_area / 2
+    #     # product_center_x = x + width / 2
+    #     # product_center_y = y + height / 2
+    #     # distance_to_center = np.sqrt((product_center_x - center_x)**2 + (product_center_y - center_y)**2)
+    #     # max_distance = np.sqrt((self.max_w)**2 + (self.max_h)**2) / 2
+    #     # compactness = 1 - (distance_to_center / max_distance)  # Scaled between 0 and 1
+    #     # compactness_bonus = compactness * 0.5
+    #     # reward += compactness_bonus
         
-        # 5. Adjacency Bonus (Simplified)
-        # Reward if the product is adjacent to at least one other product
-        adjacency = 0
-        if x > 0 and np.any(stock[x-1, y:y+height] >= 0):
-            adjacency = 1
-        elif x + width < stock.shape[0] and np.any(stock[x+width, y:y+height] >= 0):
-            adjacency = 1
-        elif y > 0 and np.any(stock[x:x+width, y-1] >= 0):
-            adjacency = 1
-        elif y + height < stock.shape[1] and np.any(stock[x:x+width, y+height] >= 0):
-            adjacency = 1
-        adjacency_bonus = adjacency * 0.2  # Small bonus
-        reward += adjacency_bonus
+    #     # 5. Adjacency Bonus (Simplified)
+    #     # Reward if the product is adjacent to at least one other product
+    #     adjacency = 0
+    #     if x > 0 and np.any(stock[x-1, y:y+height] >= 0):
+    #         adjacency = 1
+    #     elif x + width < stock.shape[0] and np.any(stock[x+width, y:y+height] >= 0):
+    #         adjacency = 1
+    #     elif y > 0 and np.any(stock[x:x+width, y-1] >= 0):
+    #         adjacency = 1
+    #     elif y + height < stock.shape[1] and np.any(stock[x:x+width, y+height] >= 0):
+    #         adjacency = 1
+    #     adjacency_bonus = adjacency * 0.2  # Small bonus
+    #     reward += adjacency_bonus
         
-        # 6. Stock Usage Efficiency Bonus (Removed)
-        # Removed to simplify the reward model and prevent redundancy with waste penalty
+    #     # 6. Stock Usage Efficiency Bonus (Removed)
+    #     # Removed to simplify the reward model and prevent redundancy with waste penalty
         
-        # 7. Completion Bonus (Adjusted)
-        if terminated:
-            # Calculate overall efficiency
-            total_stock_area = 0
-            total_used_area = 0
-            for i, stock in enumerate(self._stocks):
-                stock_area = np.sum(stock >= -1)
-                used_area = np.sum(stock >= 0)
-                total_stock_area += stock_area
-                total_used_area += used_area
+    #     # 7. Completion Bonus (Adjusted)
+    #     if terminated:
+    #         # Calculate overall efficiency
+    #         total_stock_area = 0
+    #         total_used_area = 0
+    #         for i, stock in enumerate(self._stocks):
+    #             stock_area = np.sum(stock >= -1)
+    #             used_area = np.sum(stock >= 0)
+    #             total_stock_area += stock_area
+    #             total_used_area += used_area
             
-            overall_efficiency = total_used_area / total_stock_area if total_stock_area > 0 else 0
-            completion_bonus = overall_efficiency * 2.0  # Scaled between 0 and 2
-            reward += completion_bonus
+    #         overall_efficiency = total_used_area / total_stock_area if total_stock_area > 0 else 0
+    #         completion_bonus = overall_efficiency * 2.0  # Scaled between 0 and 2
+    #         reward += completion_bonus
+        
+    #     return reward
+    
+    def calculate_reward(self, action, valid_action, terminated):
+        if not valid_action:
+            return -10.0  # Much larger penalty for invalid actions
+        
+        stock_idx = action["stock_idx"]
+        stock = self._stocks[stock_idx]
+        
+        # Simplified reward structure focusing on successful placements
+        reward = 1.0  # Base reward for valid placement
+        
+        # Add adjacency bonus
+        x, y = action["position"]
+        width, height = action["size"]
+        if (x > 0 and np.any(stock[x-1, y:y+height] >= 0) or
+            x + width < stock.shape[0] and np.any(stock[x+width, y:y+height] >= 0) or
+            y > 0 and np.any(stock[x:x+width, y-1] >= 0) or
+            y + height < stock.shape[1] and np.any(stock[x:x+width, y+height] >= 0)):
+            reward += 0.5
+        
+        if terminated:
+            reward += 5.0  # Larger completion bonus
         
         return reward
 
