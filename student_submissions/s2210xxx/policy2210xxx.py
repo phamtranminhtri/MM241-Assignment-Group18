@@ -22,9 +22,9 @@ class Policy2210xxx(Policy):
         if self.policy_id == 1:
             if stock_idx not in self.corner_points:
                 self.corner_points[stock_idx] = [(0, 0)]
-
             list_prods = sorted(observation["products"], key=lambda prod: prod["size"][0], reverse=True)
             stock_w, stock_h = self._get_stock_size_(observation["stocks"][stock_idx])
+            
             for prod in list_prods:
                 if prod["quantity"] > 0:
                     prod_size = prod["size"]
@@ -54,8 +54,8 @@ class Policy2210xxx(Policy):
             # Khởi tạo danh sách các stocks chưa sử dụng nếu chưa có
             if not self.unused_stocks:
                 self.unused_stocks = sorted(
-                    [{'index': i, 'stock': stock} for i, stock in enumerate(observation['stocks'])],
-                    key=lambda x: x['stock'].shape[0] * x['stock'].shape[1]  # Sắp xếp theo diện tích tăng dần
+                 [{'index': i, 'stock': stock} for i, stock in enumerate(observation['stocks'])],
+                key=lambda x: self._get_stock_size_(x['stock'])[0] * self._get_stock_size_(x['stock'])[1] 
                 )
             
             # Sắp xếp sản phẩm theo diện tích giảm dần một lần duy nhất
@@ -76,6 +76,7 @@ class Policy2210xxx(Policy):
                     # Quét qua các stock đang được sử dụng để tìm stock có wasted area nhỏ nhất
                     for stock_data in self.active_stocks:
                         stock_idx = stock_data['index']
+                        #print(f"index {stock_idx}")
                         stock = stock_data['stock']
                         position = self.find_best_position(stock, prod_size[0], prod_size[1])
 
@@ -85,7 +86,7 @@ class Policy2210xxx(Policy):
                                 min_waste = waste
                                 best_fit_stock_idx = stock_idx
                                 best_fit_position = position
-
+                                #print(best_fit_stock_idx)
                     # Nếu không tìm thấy trong active_stocks, chọn stock nhỏ nhất từ unused_stocks
                     if best_fit_stock_idx is None and self.unused_stocks:
                         smallest_stock_data = self.unused_stocks.pop(0)  # Lấy stock nhỏ nhất
