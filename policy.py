@@ -25,7 +25,6 @@ class Policy:
 
         return np.all(stock[pos_x : pos_x + prod_w, pos_y : pos_y + prod_h] == -1)
 
-
 class RandomPolicy(Policy):
     def __init__(self):
         pass
