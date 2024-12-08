@@ -15,19 +15,21 @@ class Policy2210xxx(Policy):
     def get_action(self, observation, info):
         # Student code here
         if self.policy_id == 1:
+            # Reset when env reset
             if not info["filled_ratio"]:
                 self.stock_idx = 0
                 self.corner_points.clear()
+            # Sort the list_product
             list_prods = sorted(observation["products"], key=lambda prod: prod["size"][0], reverse=True)
             if self.stock_idx not in self.corner_points:
                 self.corner_points[self.stock_idx] = [(0,0)]
             stock_w,stock_h = self._get_stock_size_(observation["stocks"][self.stock_idx])
-            # Find first prod["quantity"] > 0
-            #prod = next((prod for prod in list_prods if prod["quantity"] > 0), None)
+            # Place all product in current stock
             for prod in list_prods:
                 if prod["quantity"] > 0:
                     prod_size = prod["size"]
                     prod_w,prod_h = prod_size
+                    # Find the corner point can place current product
                     for x,y in self.corner_points[self.stock_idx]:
                         if (self._can_place_(observation["stocks"][self.stock_idx], (x, y), (prod_w, prod_h)) and
                             x + prod_w <= stock_w and y + prod_h <= stock_h):
@@ -36,12 +38,12 @@ class Policy2210xxx(Policy):
                                 "size": (prod_w,prod_h),
                                 "position":(x,y),
                             }
-                            # Cập nhật điểm góc
+                            # Update corner points
                             self.corner_points[self.stock_idx].append((x + prod_w, y))
                             self.corner_points[self.stock_idx].append((x, y + prod_h))
                             self.corner_points[self.stock_idx].remove((x, y))
                             return action                            
-            # Không còn chỗ đặt
+            # Move to next stock if can't place any to current stock
             self.stock_idx += 1
             return {"stock_idx": -1, "size": [0, 0], "position": (None, None)}
             
