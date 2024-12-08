@@ -16,8 +16,9 @@ if __name__ == "__main__":
     observation, info = env.reset(seed=42)
     # Test GreedyPolicy
     ep = 0
+    gd_policy = Policy2210xxx(policy_id=1)
     while ep < NUM_EPISODES:
-        gd_policy = Policy2210xxx(policy_id=1)
+        
         action = gd_policy.get_action(observation, info)
         observation, reward, terminated, truncated, info = env.step(action)
 
@@ -25,7 +26,7 @@ if __name__ == "__main__":
             print(info)
             observation, info = env.reset(seed=ep)
             ep += 1
-
+            gd_policy = Policy2210xxx(policy_id=1)
     # Reset the environment
     observation, info = env.reset(seed=42)
 
@@ -39,6 +40,7 @@ if __name__ == "__main__":
         if terminated or truncated:
             print(info)
             observation, info = env.reset(seed=ep)
+           
             ep += 1
 
     # Uncomment the following code to test your policy
