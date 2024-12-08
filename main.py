@@ -9,7 +9,7 @@ env = gym.make(
     "gym_cutting_stock/CuttingStock-v0",
     render_mode="human",  # Comment this line to disable rendering
 )
-NUM_EPISODES = 100
+NUM_EPISODES = 1
 
 if __name__ == "__main__":
     for ep in range(NUM_EPISODES):
@@ -32,6 +32,7 @@ if __name__ == "__main__":
             observation, reward, terminated, truncated, info = env.step(action)
             prod_w, prod_h = action["size"]
             filled_area += prod_w * prod_h
+            print(f"filled are = {filled_area}")
             # Kiểm tra điều kiện kết thúc khi tất cả mảnh đã được đặt
             if all(m["quantity"] <= 0 for m in observation["products"]):
                 all_pieces_placed = True
@@ -42,7 +43,8 @@ if __name__ == "__main__":
         # Tính toán diện tích dư chỉ trên các tấm đã được sử dụng
         for stock_idx in policy2210xxx.used_stocks:
             stock = observation["stocks"][stock_idx]
-            stock_w, stock_h = stock.shape  # Sử dụng shape để lấy kích thước
+            stock_w, stock_h = policy2210xxx._get_stock_size_(observation["stocks"][stock_idx])
+            print(f"stock_w = {stock_w},stock_h ={stock_h}")
             total_area += stock_w * stock_h
         wasted_area = total_area - filled_area
         wasted_ratio = (wasted_area / total_area)*100
@@ -90,4 +92,4 @@ if __name__ == "__main__":
 
         # print(f"Episode {ep + 1}: Total_area = {total_area}, Wasted area = {wasted_area}, Wasted ratio = {round(wasted_ratio, 3)}%")
         # print(f"Execution time: {execution_time:.3f} seconds")  # In thời gian thực hiện
-env.close()
+#env.close()
