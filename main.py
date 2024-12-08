@@ -14,11 +14,10 @@ NUM_EPISODES = 100
 if __name__ == "__main__":
     # Reset the environment
     observation, info = env.reset(seed=42)
-
     # Test GreedyPolicy
-    gd_policy = Policy2210xxx(policy_id=1)
     ep = 0
     while ep < NUM_EPISODES:
+        gd_policy = Policy2210xxx(policy_id=1)
         action = gd_policy.get_action(observation, info)
         observation, reward, terminated, truncated, info = env.step(action)
 
