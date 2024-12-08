@@ -26,7 +26,6 @@ if __name__ == "__main__":
             print(info)
             observation, info = env.reset(seed=ep)
             ep += 1
-            gd_policy = Policy2210xxx(policy_id=1)
     # Reset the environment
     observation, info = env.reset(seed=42)
 

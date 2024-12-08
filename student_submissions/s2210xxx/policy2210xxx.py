@@ -8,13 +8,16 @@ class Policy2210xxx(Policy):
         # Student code here
         if policy_id == 1:
             self.stock_idx = 0
-            self.corner_points = {0: [(0,0)]}
+            self.corner_points = {0:[(0,0)]}
         elif policy_id == 2:
             pass    
 
     def get_action(self, observation, info):
         # Student code here
         if self.policy_id == 1:
+            if not info["filled_ratio"]:
+                self.stock_idx = 0
+                self.corner_points.clear()
             list_prods = sorted(observation["products"], key=lambda prod: prod["size"][0], reverse=True)
             if self.stock_idx not in self.corner_points:
                 self.corner_points[self.stock_idx] = [(0,0)]
@@ -38,8 +41,7 @@ class Policy2210xxx(Policy):
                             self.corner_points[self.stock_idx].append((x, y + prod_h))
                             self.corner_points[self.stock_idx].remove((x, y))
                             return action                            
-                    # Không còn chỗ đặt
+            # Không còn chỗ đặt
             self.stock_idx += 1
             return {"stock_idx": -1, "size": [0, 0], "position": (None, None)}
-    # Student code here
-    # You can add more functions if needed
+            
