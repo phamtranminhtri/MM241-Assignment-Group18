@@ -16,7 +16,7 @@ if __name__ == "__main__":
     observation, info = env.reset(seed=42)
 
     # Test GreedyPolicy
-    gd_policy = Policy2210xxx()
+    gd_policy = Policy2210xxx(policy_id=1)
     ep = 0
     while ep < NUM_EPISODES:
         action = gd_policy.get_action(observation, info)
