@@ -3,18 +3,24 @@ import numpy as np
 
 class Policy2210xxx(Policy):
     def __init__(self, policy_id=1):
+ 
         assert policy_id in [1, 2], "Policy ID must be 1 or 2"
+
         self.policy_id = policy_id
+
         # Student code here
+        self.policy_id = policy_id
         if policy_id == 1:
+
             self.stock_idx = 0
             self.corner_points = {0:[(0,0)]}
         elif policy_id == 2:
             pass    
 
-    def get_action(self, observation, info):
+    def get_action(self, observation, info,stock_idx = 0):
         # Student code here
         if self.policy_id == 1:
+
             # Reset when env reset
             if not info["filled_ratio"]:
                 self.stock_idx = 0
@@ -45,5 +51,4 @@ class Policy2210xxx(Policy):
                             return action                            
             # Move to next stock if can't place any to current stock
             self.stock_idx += 1
-            return {"stock_idx": -1, "size": [0, 0], "position": (None, None)}
-            
+            return {"stock_idx": -1, "size": [0, 0], "position": (None, None)}   
