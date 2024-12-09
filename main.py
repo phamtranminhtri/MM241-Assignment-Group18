@@ -9,14 +9,14 @@ env = gym.make(
     "gym_cutting_stock/CuttingStock-v0",
     render_mode="human",  # Comment this line to disable rendering
 )
-NUM_EPISODES = 1
+NUM_EPISODES = 2
 
 if __name__ == "__main__":
     #Reset the environment
     observation, info = env.reset(seed=42)
     # Test GreedyPolicy
     ep = 0
-    gd_policy = Policy2210xxx(policy_id=1)
+    gd_policy = Policy2210xxx(policy_id=2)
     while ep < NUM_EPISODES:
         action = gd_policy.get_action(observation, info)
         #print(action)
@@ -24,7 +24,7 @@ if __name__ == "__main__":
         #print(info)
         #print(observation["products"])
         if terminated or truncated:
-            #print(info)
+            print(info)
             observation, info = env.reset(seed = ep)
             ep += 1
     # Reset the environment

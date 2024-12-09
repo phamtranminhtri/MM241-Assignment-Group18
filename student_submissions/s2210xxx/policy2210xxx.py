@@ -13,7 +13,7 @@ class Policy2210xxx(Policy):
         elif policy_id == 2:
             self.active_stocks = []  # Danh sách các stock đang được sử dụng
             self.unused_stocks = []  # Danh sách các stock chưa được sử dụng
-            pass    
+        pass    
 
     def get_action(self, observation, info):
         # Student code here
@@ -48,25 +48,20 @@ class Policy2210xxx(Policy):
             self.stock_idx += 1
             return {"stock_idx": -1, "size": [0, 0], "position": (None, None)}
         if self.policy_id == 2:
-            
-            max_colors = 10
-            
-            # if not info["filled_ratio"]:
-            #     print("bbbbb")
-            #     self.active_stocks.clear()  # Danh sách các stock đang được sử dụng
-            #     self.unused_stocks.clear() # Danh sách các stock chưa được sử dụng
+            if not info["filled_ratio"]:
+                self.active_stocks= []  # Danh sách các stock đang được sử dụng
+                self.unused_stocks=[] # Danh sách các stock chưa được sử dụng
             if not self.unused_stocks:
-                self.unused_stocks= sorted(
-                 [{'index': i, 'stock': stock} for i, stock in enumerate(observation['stocks'])],
-                key=lambda x: self._get_stock_size_(x['stock'])[0] * self._get_stock_size_(x['stock'])[1])
-                
-            # Sắp xếp sản phẩm theo diện tích giảm dần một lần duy nhất    
-            if not hasattr(self, 'sorted_products'):
                 self.sorted_products = sorted(
                     observation['products'], 
                     key=lambda x: x['size'][0] * x['size'][1], 
                     reverse=True
                 )
+                #print("YES")
+                self.unused_stocks= sorted(
+                 [{'index': i, 'stock': stock} for i, stock in enumerate(observation['stocks'])],
+                key=lambda x: self._get_stock_size_(x['stock'])[0] * self._get_stock_size_(x['stock'])[1])
+            max_colors = 10
             for product_idx, product in enumerate(self.sorted_products):
                 if product['quantity'] > 0:
                     prod_size = product['size']
@@ -90,6 +85,8 @@ class Policy2210xxx(Policy):
                                # print(best_fit_stock_idx)
                     # Nếu không tìm thấy trong active_stocks, chọn stock nhỏ nhất từ unused_stocks
                     if best_fit_stock_idx is None and self.unused_stocks:
+
+                        #print(self.unused_stocks)
                         smallest_stock_data = self.unused_stocks.pop(0)  # Lấy stock nhỏ nhất
                         self.active_stocks.append(smallest_stock_data)  # Đưa vào active_stocks
                         stock_idx = smallest_stock_data['index']
@@ -103,7 +100,7 @@ class Policy2210xxx(Policy):
                     if best_fit_stock_idx is not None:
                         product_id = product_idx % max_colors
                         #self.update_stock(observation['stocks'][best_fit_stock_idx], best_fit_position, prod_size[0], prod_size[1], product_id, max_colors)
-                        print(f"size{self._get_stock_size_(observation['stocks'][best_fit_stock_idx]) }")
+                        #print(f"size{self._get_stock_size_(observation['stocks'][best_fit_stock_idx]) }")
                         return {
                             'stock_idx': best_fit_stock_idx,
                             #'stock_idx': 71,
