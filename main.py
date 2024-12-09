@@ -1,7 +1,7 @@
 import gym_cutting_stock
 import gymnasium as gym
 from policy import GreedyPolicy, RandomPolicy
-from student_submissions.s2210xxx.policy2210xxx import Policy2210xxx
+from student_submissions.s2213467.policy2213467 import Policy2213467
 import pygame
 pygame.display.set_mode((800,800))
 # Create the environment
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     observation, info = env.reset(seed=42)
 
     # Test Policy 1
-    policy = Policy2210xxx(policy_id=1)
+    policy = Policy2213467(policy_id=1)
     ep = 0
     while ep < NUM_EPISODES:
         action = policy.get_action(observation, info)
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     observation, info = env.reset(seed=42)
 
     # Test Policy 2
-    policy = Policy2210xxx(policy_id=2)
+    policy = Policy2213467(policy_id=2)
     ep = 0
     while ep < NUM_EPISODES:
         action = policy.get_action(observation, info)

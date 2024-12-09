@@ -1,7 +1,7 @@
 import gym_cutting_stock
 import gymnasium as gym
 from policy import GreedyPolicy, RandomPolicy
-from student_submissions.s2210xxx.policy2210xxx import Policy2210xxx
+from student_submissions.s2213467.policy2213467 import Policy2213467
 import pygame
 pygame.display.set_mode((800, 800))
 from customEnv import CustomCuttingStockEnv, read_testcase_file
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     observation, info = env.reset(seed=42, options=data)
 
     ep = 0
-    gd_policy = Policy2210xxx(policy_id=1)
+    gd_policy = Policy2213467(policy_id=1)
     while ep < NUM_EPISODES:
         
         action = gd_policy.get_action(observation, info)
