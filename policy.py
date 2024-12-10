@@ -25,6 +25,7 @@ class Policy:
 
         return np.all(stock[pos_x : pos_x + prod_w, pos_y : pos_y + prod_h] == -1)
 
+
 class RandomPolicy(Policy):
     def __init__(self):
         pass
@@ -47,7 +48,7 @@ class RandomPolicy(Policy):
                     # random choice a stock
                     stock_idx = random.randint(0, len(observation["stocks"]) - 1)
                     stock = observation["stocks"][stock_idx]
-                
+
                     # Random choice a position
                     stock_w, stock_h = self._get_stock_size_(stock)
                     prod_w, prod_h = prod_size

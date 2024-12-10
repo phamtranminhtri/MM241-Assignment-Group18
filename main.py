@@ -1,9 +1,8 @@
 import gym_cutting_stock
 import gymnasium as gym
 from policy import GreedyPolicy, RandomPolicy
-from student_submissions.s2213467.policy2213467 import Policy2213467
-import pygame
-pygame.display.set_mode((800,800))
+from student_submissions.s2210xxx.policy2210xxx import Policy2210xxx
+
 # Create the environment
 env = gym.make(
     "gym_cutting_stock/CuttingStock-v0",
@@ -12,37 +11,29 @@ env = gym.make(
 NUM_EPISODES = 100
 
 if __name__ == "__main__":
-    # total_trim_loss = 0.0
-    # file_path = "student_submissions\s2213467\policy_id1_100eps.txt"
-    # with open(file_path, "w") as file:
-    #     pass
-    # # Reset the environment
-    # observation, info = env.reset(seed=42)
-    # # Test Policy 1
-    # policy = Policy2213467(policy_id=1)
-    # ep = 0
-    # while ep < NUM_EPISODES:
-    #     action = policy.get_action(observation, info)
-    #     observation, reward, terminated, truncated, info = env.step(action)
-
-    #     if terminated or truncated:
-    #         print(info)
-    #         with open(file_path, "a") as file:
-    #             file.write(f"{info}\n")
-    #         total_trim_loss+= info["trim_loss"]
-    #         observation, info = env.reset(seed=ep)
-    #         ep += 1
-    # print(f"Average trim_loss: {total_trim_loss/NUM_EPISODES} in {NUM_EPISODES} eps")
-    # with open(file_path, "a") as file:
-    #     file.write(f"Average trim_loss: {total_trim_loss/NUM_EPISODES} in {NUM_EPISODES} eps")
     # Reset the environment
     observation, info = env.reset(seed=42)
 
-    # Test Policy 2
-    policy = Policy2213467(policy_id=2)
+    # Test GreedyPolicy
+    gd_policy = GreedyPolicy()
     ep = 0
     while ep < NUM_EPISODES:
-        action = policy.get_action(observation, info)
+        action = gd_policy.get_action(observation, info)
+        observation, reward, terminated, truncated, info = env.step(action)
+
+        if terminated or truncated:
+            print(info)
+            observation, info = env.reset(seed=ep)
+            ep += 1
+
+    # Reset the environment
+    observation, info = env.reset(seed=42)
+
+    # Test RandomPolicy
+    rd_policy = RandomPolicy()
+    ep = 0
+    while ep < NUM_EPISODES:
+        action = rd_policy.get_action(observation, info)
         observation, reward, terminated, truncated, info = env.step(action)
 
         if terminated or truncated:
