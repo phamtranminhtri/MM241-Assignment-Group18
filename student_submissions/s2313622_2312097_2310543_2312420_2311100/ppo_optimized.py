@@ -130,7 +130,7 @@ class ActorNetwork(nn.Module):
         B = stocks.size(0)
         
         # Rest of processing remains the same
-        stocks = stocks.unsqueeze(2)  # (B, num_stocks, 1, 100, 100)
+        stocks = stocks.unsqueeze(2)  # (B, num_stocks, 1, max_w, max_h)
         stocks = stocks.view(B * self.num_stocks, 1, self.max_h, self.max_w)
         stock_embeds = self.stock_encoder(stocks)  # (B*num_stocks, 128)
         stock_embeds = stock_embeds.view(B, self.num_stocks, 128)
@@ -210,7 +210,7 @@ class CriticNetwork(nn.Module):
         B = stocks.size(0)
         
         # Rest of processing remains the same
-        stocks = stocks.unsqueeze(2)  # (B, num_stocks, 1, 100, 100)
+        stocks = stocks.unsqueeze(2)  # (B, num_stocks, 1, max_w, max_h)
         stocks = stocks.view(B * self.num_stocks, 1, self.max_h, self.max_w)
         stock_embeds = self.stock_encoder(stocks)  # (B*num_stocks, 128)
         stock_embeds = stock_embeds.view(B, self.num_stocks, 128)
@@ -458,7 +458,6 @@ class PPO:
 
         # Keep simulating until we've run more than or equal to specified timesteps per batch
         while t < self.timesteps_per_batch:
-            print(f"t: {t}")
             ep_rews = [] # rewards collected per episode
             ep_vals = [] # state values collected per episode
             ep_dones = [] # done flag collected per episode
@@ -488,7 +487,7 @@ class PPO:
 
                 obs, rew, terminated, truncated, info = self.env.step(action)
                 done = terminated or truncated or ep_t == self.max_timesteps_per_episode - 1 or t == self.timesteps_per_batch
-                rew = self.get_reward(obs, action, product_index, info, done, new_stock)
+                rew = self.get_reward(info, done)
                 # Track recent reward, action, and action log probability
                 ep_rews.append(rew)
                 ep_vals.append(val.flatten())
@@ -497,6 +496,12 @@ class PPO:
 
                 # If the environment tells us the episode is terminated, break
                 if done:
+                    # Uncomment to print episode results
+                    # if terminated:
+                    #     print(f"Episode finished at timestep {ep_t}")
+                    # else:
+                    #     print(f"Episode truncated at timestep {ep_t}")
+                    # print(info)
                     break
 
             # Track episodic lengths, rewards, state values, and done flags
@@ -516,7 +521,7 @@ class PPO:
 
     def get_action(self, obs):
         # Extract observation components
-        stocks_np = obs['stocks']  # shape (num_stocks, 100, 100)
+        stocks_np = obs['stocks']  # shape (num_stocks, max_w, max_h)
         products_np = obs['products']  # shape (num_products, 3)
         
         # Extract numerical data from products_np
@@ -701,19 +706,11 @@ class PPO:
         self.logger['actor_losses'] = []
 
     
-    def get_reward(self, obs, action, product_idx, info, done, new_stock):
-        placement_reward = 0
+    def get_reward(self, info, done):
         if done:
-            # Check for incomplete products
-            incomplete = any(p['quantity'] != 0 for p in obs['products'])
-            if incomplete:
-                return placement_reward - 100.0  # Adjusted penalty
-            else:
-                # Bonus for completion with emphasis on efficiency
-                efficiency_bonus = (1.0 - info['trim_loss']) * 200.0  # Adjusted scaling
-                return placement_reward + efficiency_bonus
-
-        return placement_reward
+            return (1.0 - info['trim_loss']) * 200.0  # Adjusted scaling
+        else:
+            return 0
 
     
 def greedy(stocks, stock_idx, prod_size):
