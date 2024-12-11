@@ -2,72 +2,47 @@ from policy import Policy
 from math import floor, ceil
 from copy import deepcopy
 from random import randint, shuffle, random, choice, choices
-import time  
+import time
 import numpy as np
 
 class Policy2310139_2310090_2310191_2310242_2310423(Policy):
+    def __init__(self, policy_id=1, populationSize=300, penalty=2, mutationRate=0.1):
+        """
+        Initialize the Policy based on the given policy_id.
+        """
+        assert policy_id in [1, 2], "Policy ID must be 1 or 2"
+        self.policy_id = policy_id
+
+        if self.policy_id == 1:
+            # Parameters for Genetic Algorithm (your original implementation)
+            self.MAX_ITERATIONS = 2000
+            self.POPULATION_SIZE = populationSize
+            self.penalty = penalty
+            self.mutationRate = mutationRate
+            self.stockLength = 0
+            self.stockWidth = 0
+            self.lengthArr = []
+            self.widthArr = []
+            self.demandArr = []
+            self.N = None
+        if policy_id == 2:
+            self.stockLength = 0
+            self.stockWidth = 0
+            self.lengthArr = []
+            self.widthArr = []
+            self.demandArr = []
+            self.demand = [0]  # Demand should be a list
+            self.dual_prices = []  # Initialize dual prices after item_sizes
+            self.columns = []  # Store generated columns
+            self.column_frequencies = {}
+            self.stock_idx = 0
+            
+#----------------------------------------------------------------------------------------------------------------------------
+    # Helper functions for the Genetic Algorithm
+#----------------------------------------------------------------------------------------------------------------------------
     #------------------------------------------------------------------------------------------------------------------------
     #Part 1(Nguyễn Hoàng Gia Bảo)
     #------------------------------------------------------------------------------------------------------------------------
-    def __init__(self, populationSize = 300, penalty = 2, mutationRate = 0.1):
-        # Student code here
-        """
-        Hàm khởi tạo lớp GeneticPolicy để triển khai thuật toán di truyền.
-
-        Tham số:
-        - populationSize (int): Số lượng cá thể (chromosome) trong quần thể.
-        - penalty (float): Hệ số phạt áp dụng cho nhu cầu chưa được đáp ứng.
-        - mutationRate (float): Xác suất xảy ra đột biến trong mỗi bước tiến hóa.
-        """
-        self.MAX_ITERATIONS = 2000 # Số vòng lặp tối đa cho thuật toán
-        self.POPULATION_SIZE = populationSize
-        self.stockLength = 0  # Chiều dài của kho nguyên liệu
-        self.stockWidth = 0 # Chiều rộng của kho nguyên liệu
-        self.lengthArr = [] # Mảng chứa chiều dài của các mẫu
-        self.widthArr = [] # Mảng chứa chiều rộng của các mẫu
-        self.demandArr = [] # Mảng chứa số lượng yêu cầu các mẫu
-        self.N = None # Số lượng mẫu
-        self.penalty = penalty
-        self.mutationRate = mutationRate
-
-   
-    # def generate_efficient_patterns(self):
-    #     result = []
-    #     availableArr = [
-    #         min(
-    #             floor(self.stockLength / self.lengthArr[0]),
-    #             floor(self.stockWidth / self.widthArr[0]),
-    #             self.demandArr[0]
-    #         )
-    #     ]
-    #     for n in range(1, self.N):
-    #         s = sum(availableArr[j] * self.lengthArr[j] for j in range(n))
-    #         availableArr.append(
-    #             min(
-    #                 floor((self.stockLength - s) / self.lengthArr[n]),
-    #                 floor((self.stockWidth - s) / self.widthArr[n]),
-    #                 self.demandArr[n]
-    #             )
-    #         )
-    #     while True:
-    #         if sum(availableArr) == 0:  # Stop if no patterns are feasible
-    #             break
-    #         result.append(availableArr.copy())
-    #         for j in range(len(availableArr) - 1, -1, -1):
-    #             if availableArr[j] > 0:
-    #                 availableArr[j] -= 1
-    #                 for k in range(j + 1, self.N):
-    #                     s = sum(availableArr[m] * self.lengthArr[m] for m in range(k))
-    #                     availableArr[k] = min(
-    #                         floor((self.stockLength - s) / self.lengthArr[k]),
-    #                         floor((self.stockWidth - s) / self.widthArr[k]),
-    #                         self.demandArr[k]
-    #                     )
-    #                 break
-    #         else:
-    #             break
-    #     return result
-    
     def generate_efficient_patterns(self):
         patterns = []
         stack = [([0] * self.N, 0, 0)]
@@ -368,56 +343,195 @@ class Policy2310139_2310090_2310191_2310242_2310423(Policy):
 
         return new_population
 
+#----------------------------------------------------------------------------------------------------------------------------
+    #helper functions for the column generation algorithm
+#----------------------------------------------------------------------------------------------------------------------------
+
+    def solve_subproblem(self):
+        """
+        Solve the subproblem to generate a new cutting pattern.
+        """
+        if not self.lengthArr or not self.widthArr or not self.dual_prices:
+            return (0, 0)
+
+        max_reduced_cost = float('-inf')
+        best_cut = None
+
+        for i in range(len(self.lengthArr)):
+            width, height = self.lengthArr[i], self.widthArr[i]
+            if width <= self.stockLength and height <= self.stockWidth:
+                reduced_cost = self.dual_prices[i] - 1
+                if reduced_cost > max_reduced_cost:
+                    max_reduced_cost = reduced_cost
+                    best_cut = (width, height)
+
+        return best_cut if max_reduced_cost > 0 else (0, 0)
+
+
+
+    def update_dual_prices(self):
+        """
+        Update the dual prices based on demand satisfaction.
+        """
+        for i in range(len(self.lengthArr)):
+            size = (self.lengthArr[i], self.widthArr[i])
+            usage = self.column_frequencies.get(size, 0)
+            demand = self.demandArr[i]
+            adjustment = (demand - usage) / (demand + 1) if demand > 0 else 0
+            self.dual_prices[i] = max(0, self.dual_prices[i] * (1 + adjustment))
+
+
+    def is_pattern_feasible(self, pattern):
+        """
+        Check if a cutting pattern is feasible within stock dimensions.
+        """
+        total_length = sum(pattern[i] * self.lengthArr[i] for i in range(len(pattern)))
+        total_width = sum(pattern[i] * self.widthArr[i] for i in range(len(pattern)))
+        return total_length <= self.stockLength and total_width <= self.stockWidth
+
+
+    def generate_efficient_patterns(self):
+        """
+        Generate cutting patterns based on stock size and item dimensions.
+
+        Returns:
+        - List of efficient cutting patterns.
+        """
+        patterns = []
+        for i in range(len(self.lengthArr)):
+            for j in range(len(self.widthArr)):
+                # Check if item fits within stock dimensions
+                if self.lengthArr[i] <= self.stockLength and self.widthArr[j] <= self.stockWidth:
+                    pattern = [0] * len(self.lengthArr)
+                    pattern[i] += 1  # Increment the pattern count for this item
+                    patterns.append(pattern)
+        return patterns
+
+    def calculate_max_pattern_repetition(self, patternsArr):
+        """
+        Calculate the maximum repetitions for each pattern based on demand.
+
+        Args:
+        - patternsArr: List of cutting patterns.
+
+        Returns:
+        - List of maximum repetitions for each pattern.
+        """
+        max_repetitions = []
+        for pattern in patternsArr:
+            repetitions = []
+            for i, count in enumerate(pattern):
+                if count > 0:
+                    # Calculate how many times this pattern can be repeated
+                    repetitions.append(self.demandArr[i] // count)
+            max_repetitions.append(min(repetitions) if repetitions else 0)
+        return max_repetitions
+
+
     def get_action(self, observation, info):
-        list_prods = observation["products"]
-        stocks = observation["stocks"]
+            """
+            Entry point for decision making based on the observation.
+            """
+            if self.policy_id == 1:
+                # Use the existing implementation for Genetic Algorithm
+                list_prods = observation["products"]
+                stocks = observation["stocks"]
 
-        # Ensure there are stocks available
-        if not stocks or not list_prods:
-            return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
+                if not stocks or not list_prods:
+                    return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
 
-        # Extract product dimensions and demands
-        self.lengthArr = [prod["size"][0] for prod in list_prods if prod["quantity"] > 0]
-        self.widthArr = [prod["size"][1] for prod in list_prods if prod["quantity"] > 0]
-        self.demandArr = [prod["quantity"] for prod in list_prods if prod["quantity"] > 0]
-        self.N = len(self.lengthArr)
+                self.lengthArr = [prod["size"][0] for prod in list_prods if prod["quantity"] > 0]
+                self.widthArr = [prod["size"][1] for prod in list_prods if prod["quantity"] > 0]
+                self.demandArr = [prod["quantity"] for prod in list_prods if prod["quantity"] > 0]
+                self.N = len(self.lengthArr)
 
-        if self.N == 0:
-            return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
+                if self.N == 0:
+                    return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
 
-        # Initialize stock dimensions using the first stock in the list
-        first_stock = stocks[0]
-        self.stockLength, self.stockWidth = self._get_stock_size_(first_stock)
+                first_stock = stocks[0]
+                self.stockLength, self.stockWidth = self._get_stock_size_(first_stock)
 
-        # Generate patterns and initialize population
-        patterns_arr = self.generate_efficient_patterns()
-        max_repeat_arr = self.calculate_max_pattern_repetition(patterns_arr)
-        population = self.initialize_population(max_repeat_arr)
+                patterns_arr = self.generate_efficient_patterns()
+                max_repeat_arr = self.calculate_max_pattern_repetition(patterns_arr)
+                population = self.initialize_population(max_repeat_arr)
 
-        # Run the genetic algorithm
-        best_solution, _, _, _ = self.run(population, patterns_arr, max_repeat_arr, None)
+                best_solution, _, _, _ = self.run(population, patterns_arr, max_repeat_arr,None)
 
-        # Translate best solution to a placement action
-        for i in range(0, len(best_solution), 2):
-            pattern_index = best_solution[i]
-            repetition = best_solution[i + 1]
-            pattern = patterns_arr[pattern_index]
+                for i in range(0, len(best_solution), 2):
+                    pattern_index = best_solution[i]
+                    repetition = best_solution[i + 1]
+                    pattern = patterns_arr[pattern_index]
 
-            for stock_idx, stock in enumerate(stocks):
-                stock_w, stock_h = self._get_stock_size_(stock)
-                for x in range(stock_w):
-                    for y in range(stock_h):
-                        if pattern_index >= len(self.lengthArr):
-                            continue  # Skip invalid pattern indices
-                        prod_size = (self.lengthArr[pattern_index], self.widthArr[pattern_index])   
+                    for stock_idx, stock in enumerate(stocks):
+                        stock_w, stock_h = self._get_stock_size_(stock)
+                        for x in range(stock_w):
+                            for y in range(stock_h):
+                                if pattern_index >= len(self.lengthArr):
+                                    continue
+                                prod_size = (self.lengthArr[pattern_index], self.widthArr[pattern_index])
+                                if self._can_place_(stock, (x, y), prod_size):
+                                    return {
+                                        "stock_idx": stock_idx,
+                                        "size": prod_size,
+                                        "position": (x, y)
+                                    }
+                return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
+            if self.policy_id == 2:
+        # Initialization
+                if not self.dual_prices or not self.lengthArr or not self.widthArr or not self.demandArr:
+                    # self.stockLength = observation.get("stock_length", 100)
+                    # self.stockWidth = observation.get("stock_width", 100)
+                    self.lengthArr = [prod["size"][0] for prod in observation.get("products", [])]
+                    self.widthArr = [prod["size"][1] for prod in observation.get("products", [])]
+                    self.demandArr = [prod["quantity"] for prod in observation.get("products", [])]
+                    self.demand = self.demandArr[:]
+                    self.dual_prices = [1.0] * len(self.lengthArr)
+                    self.columns = []
+                    self.column_frequencies = {}
+                list_prods = observation["products"]
+                stocks = observation["stocks"]
+                first_stock = stocks[0]
+                self.stockLength, self.stockWidth = self._get_stock_size_(first_stock)
+                # Generate patterns and calculate repetitions
+                patterns = self.generate_efficient_patterns()
+                max_repetitions = self.calculate_max_pattern_repetition(patterns)
 
-                        if self._can_place_(stock, (x, y), prod_size):
-                            return {
-                                "stock_idx": stock_idx,
-                                "size": prod_size,
-                                "position": (x, y)
-                            }
+                # Select the best pattern
+                for stock_idx in range(len(observation.get("stocks", []))):
+                    stock = observation["stocks"][stock_idx]
+                    for pattern, max_rep in zip(patterns, max_repetitions):
+                        if max_rep > 0:
+                            for x in range(self.stockLength):
+                                for y in range(self.stockWidth):
+                                    feasible = True
+                                    for i, count in enumerate(pattern):
+                                        if count > 0:
+                                            prod_size = (self.lengthArr[i], self.widthArr[i])
+                                            if not self._can_place_(stock, (x, y), prod_size):
+                                                feasible = False
+                                                break
 
-        return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
+                                    if feasible:
+                                        # Update usage and dual prices
+                                        for i, count in enumerate(pattern):
+                                            if count > 0:
+                                                self.demandArr[i] -= count
+                                                self.column_frequencies[(self.lengthArr[i], self.widthArr[i])] = \
+                                                    self.column_frequencies.get((self.lengthArr[i], self.widthArr[i]), 0) + count
 
-    
+                                        # Update dual prices and track the column
+                                        self.update_dual_prices()
+                                        self.columns.append(pattern)
+
+                                        return {
+                                            "stock_idx": stock_idx,
+                                            "size": prod_size,  # Use the actual product size
+                                            "position": (x, y),
+                                        }
+
+                # No feasible placement found
+                return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
+
+
+
+
