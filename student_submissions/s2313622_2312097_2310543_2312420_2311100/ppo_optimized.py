@@ -1,18 +1,18 @@
-"""
-    The file contains the PPO class to train with.
-    NOTE: All "ALG STEP"s are following the numbers from the original PPO pseudocode.
-            It can be found here: https://spinningup.openai.com/en/latest/_images/math/e62a8971472597f4b014c2da064f636ffe365ba3.svg
-"""
+# ACKNOWLEDGEMENT: This code is based on the PPO implementation from the following source:
+# https://github.com/ericyangyu/PPO-for-Beginners
 
-import time
+import argparse
+import gym_cutting_stock
 import gymnasium as gym
 import numpy as np
+import os
+import sys
+import time
 import torch
 import torch.nn as nn
-from torch.optim import Adam
-from torch.distributions import Categorical
 import torch.nn.functional as F
-
+from torch.distributions import Categorical
+from torch.optim import Adam
 
 
 # ----------------------------------------------------
@@ -67,12 +67,6 @@ class ActorNetwork(nn.Module):
         self.product_head = nn.Linear(160, num_products).to(device)
 
     def forward(self, obs):
-        """
-        Forward pass that takes raw observations and processes them.
-        
-        Args:
-            obs: Dictionary or list of dictionaries containing 'stocks' and 'products' entries
-        """
         # Handle both single observations and batched observations
         if isinstance(obs, list):
             # Batch processing
@@ -149,13 +143,8 @@ class CriticNetwork(nn.Module):
         # Value head
         self.value_head = nn.Linear(160, 1).to(device)
 
+
     def forward(self, obs):
-        """
-        Forward pass that takes raw observations and processes them.
-        
-        Args:
-            obs: Dictionary or list of dictionaries containing 'stocks' and 'products' entries
-        """
         # Handle both single observations and batched observations
         if isinstance(obs, list):
             # Batch processing
@@ -214,22 +203,9 @@ class CriticNetwork(nn.Module):
             value = self.value_head(combined)              # (B, 1)
             return value.squeeze(-1)  # (B,)
     
+    
 class PPO:
-    """
-        This is the PPO class we will use as our model in main.py
-    """
     def __init__(self, env, **hyperparameters):
-        """
-            Initializes the PPO model, including hyperparameters.
-
-            Parameters:
-                policy_class - the policy class to use for our actor/critic networks.
-                env - the environment to train on.
-                hyperparameters - all extra arguments passed into PPO that should be hyperparameters.
-
-            Returns:
-                None
-        """        
         # Check GPU availability
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
@@ -300,10 +276,7 @@ class PPO:
             self.logger['t_so_far'] = t_so_far
             self.logger['i_so_far'] = i_so_far
 
-            # One of the only tricks I use that isn't in the pseudocode. Normalizing advantages
-            # isn't theoretically necessary, but in practice it decreases the variance of 
-            # our advantages and makes convergence much more stable and faster. I added this because
-            # solving some environments was too unstable without it.
+            # Normalizing advantages
             A_k = (A_k - A_k.mean()) / (A_k.std() + 1e-10)
 
             # This is the loop where we update our network for some n epochs
@@ -342,10 +315,6 @@ class PPO:
                     # Calculate the ratio pi_theta(a_t | s_t) / pi_theta_k(a_t | s_t)
                     # NOTE: we just subtract the logs, which is the same as
                     # dividing the values and then canceling the log with e^log.
-                    # For why we use log probabilities instead of actual probabilities,
-                    # here's a great explanation: 
-                    # https://cs.stackexchange.com/questions/70518/why-do-we-use-the-log-in-gradient-based-reinforcement-algorithms
-                    # TL;DR makes gradient descent easier behind the scenes.
                     logratios = curr_log_probs - mini_log_prob
                     ratios = torch.exp(logratios)
                     approx_kl = ((ratios - 1) - logratios).mean()
@@ -391,9 +360,13 @@ class PPO:
             self._log_summary()
 
             # Save our model if it's time
-            if i_so_far % self.save_freq == 0:
-                torch.save(self.actor.state_dict(), './ppo_actor.pth')
-                torch.save(self.critic.state_dict(), './ppo_critic.pth')
+            if i_so_far % self.save_freq == 1:
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                actor_path = os.path.join(current_dir, "ppo_actor.pth")
+                critic_path = os.path.join(current_dir, "ppo_critic.pth")
+                torch.save(self.actor.state_dict(), actor_path)
+                torch.save(self.critic.state_dict(), critic_path)
+
 
     def calculate_gae(self, rewards, values, dones):
         batch_advantages = []  # List to store computed advantages for each timestep
@@ -489,9 +462,7 @@ class PPO:
             batch_rews.append(ep_rews)
             batch_vals.append(ep_vals)
             batch_dones.append(ep_dones)
-        # Reshape data as tensors in the shape specified in function description, before returning
-        # batch_obs = torch.tensor(batch_obs, dtype=torch.float)
-        # batch_acts = torch.tensor(batch_acts, dtype=torch.float)
+        
         batch_log_probs = torch.tensor(batch_log_probs, dtype=torch.float).flatten()
 
         # Log the episodic returns and episodic lengths in this batch.
@@ -502,16 +473,6 @@ class PPO:
         return batch_obs, batch_acts, batch_log_probs, batch_rews, batch_lens, batch_vals,batch_dones
 
     def get_action(self, obs):
-        """
-            Queries an action from the actor network, should be called from rollout.
-
-            Parameters:
-                obs - the observation at the current timestep
-
-            Return:
-                action - the action to take, as a numpy array
-                log_prob - the log probability of the selected action in the distribution
-        """
         # Extract observation components
         stocks_np = obs['stocks']  # shape (num_stocks, 100, 100)
         products_np = obs['products']  # shape (num_products, 3)
@@ -534,10 +495,6 @@ class PPO:
 
         # Convert to numpy arrays
         products_array = np.array(products_list)  # Shape: (num_products, 3)
-
-        # Convert to tensors
-        # stocks_tensor = torch.tensor(np.array(stocks_np), dtype=torch.float).unsqueeze(0).to(self.device)
-        # products_tensor = torch.tensor(products_array, dtype=torch.float).unsqueeze(0).to(self.device)
         
         # Query the actor network for a mean action
         stock_logits, product_logits = self.actor(obs)
@@ -579,10 +536,6 @@ class PPO:
         return action, log_prob.detach(), product_action.item(), is_new_stock
 
     def evaluate(self, batch_obs, batch_acts):
-        """
-        Estimate the values of each observation, and the log probs of
-        each action in the most recent batch.
-        """
         # Get critic's value prediction
         V = self.critic(batch_obs)
 
@@ -632,17 +585,8 @@ class PPO:
 
         return V, log_probs, entropy
 
+
     def _init_hyperparameters(self, hyperparameters):
-        """
-            Initialize default and custom values for hyperparameters
-
-            Parameters:
-                hyperparameters - the extra arguments included when creating the PPO model, should only include
-                                    hyperparameters defined below with custom values.
-
-            Return:
-                None
-        """
         # Initialize default values for hyperparameters
         # Algorithm hyperparameters
         self.timesteps_per_batch = 4800                 # Number of timesteps to run per batch
@@ -678,18 +622,7 @@ class PPO:
             print(f"Successfully set seed to {self.seed}")
 
     def _log_summary(self):
-        """
-            Print to stdout what we've logged so far in the most recent batch.
-
-            Parameters:
-                None
-
-            Return:
-                None
-        """
-        # Calculate logging values. I use a few python shortcuts to calculate each value
-        # without explaining since it's not too important to PPO; feel free to look it over,
-        # and if you have any questions you can email me (look at bottom of README)
+        # Calculate logging values. 
         delta_t = self.logger['delta_t']
         self.logger['delta_t'] = time.time_ns()
         delta_t = (self.logger['delta_t'] - delta_t) / 1e9
@@ -724,75 +657,9 @@ class PPO:
         self.logger['batch_lens'] = []
         self.logger['batch_rews'] = []
         self.logger['actor_losses'] = []
-        
-    # Added methods
-    def extract(self, obs):
-        # Extract observation components
-        stocks_np = obs['stocks']  # shape (num_stocks, 100, 100)
-        products_np = obs['products']  # shape (num_products, 3)
-        
-        # Extract numerical data from products_np
-        # Extract product features and quantities
-        products_list = []
-        for product in products_np:
-            size = product['size']
-            quantity = product['quantity']
-            product_features = np.concatenate((size, [quantity]))
-            products_list.append(product_features)
 
-        # Calculate padding length
-        pad_length = self.num_products - len(products_list)
-
-        # Pad both arrays if needed
-        if pad_length > 0:
-            products_list += [[0, 0, 0]] * pad_length
-
-        # Convert to numpy arrays
-        products_array = np.array(products_list)  # Shape: (num_products, 3)
-
-        # Convert to tensors
-        stocks_tensor = torch.tensor(np.array(stocks_np), dtype=torch.float).unsqueeze(0).to(self.device)
-        products_tensor = torch.tensor(products_array, dtype=torch.float).unsqueeze(0).to(self.device)
-        
-        return stocks_tensor, products_tensor
-    
-    # def get_reward(self, obs, action, product_idx, info, done, new_stock):
-    #     if action['stock_idx'] == -1 or action['size'] == [0, 0]:
-    #         return -10
-        
-    #     if not new_stock:
-    #         return 5
-        
-    #     if done:
-    #         # placed all product successfully for product in obs['products']
-    #         for product in obs['products']:
-    #             if product['quantity'] != 0:
-    #                 return -50
-        
-    #         return -info['trim_loss'] * 100
-        
-    #     return 0
     
     def get_reward(self, obs, action, product_idx, info, done, new_stock):
-        """
-        Adjusted reward structure for better learning signals.
-        """
-        # Remove invalid action penalty (since invalid actions are masked)
-
-        # Calculate placement efficiency
-        # product_area = action['size'][0] * action['size'][1]
-        # # Set this to the actual maximum product area
-        # area_ratio = product_area / self.max_product_area
-
-        # if new_stock:
-        #     # Penalize starting new stock moderately
-        #     base_reward = -10.0
-        # else:
-        #     # Reward using existing stock
-        #     base_reward = 10.0
-        
-        # # Scale reward by area ratio
-        # placement_reward = base_reward + area_ratio * 10.0  # Adjusted scaling
         placement_reward = 0
         if done:
             # Check for incomplete products
@@ -808,7 +675,6 @@ class PPO:
 
     
 def greedy(stocks, stock_idx, prod_size):
-    # TODO
     if prod_size == [0, 0]:
         return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
     
@@ -855,3 +721,70 @@ def _can_place_(stock, position, prod_size):
     prod_w, prod_h = prod_size
 
     return np.all(stock[pos_x : pos_x + prod_w, pos_y : pos_y + prod_h] == -1)
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--actor_model', dest='actor_model', type=str, default='')     # your actor model filename
+    parser.add_argument('--critic_model', dest='critic_model', type=str, default='')   # your critic model filename
+
+    args = parser.parse_args()
+
+    return args
+
+def main(args):
+    # NOTE: Here's where you can set hyperparameters for PPO.
+    # For default gym_cutting_stock (num_stocks=100, max_product_type=25, max_product_per_type=20), 
+    # training can take up to 8GB of RAM with timesteps_per_batch=100, so if you're running out 
+    # of memory, consider reducing these values.
+    # For gym_cutting_stock with num_stocks=16, max_product_type=5, max_product_per_type=10, training 
+    # use less RAM, so you can set timestep_per_batch=300 and max_timesteps_per_episode=60. 
+    hyperparameters = {
+                'timesteps_per_batch': 100, 
+                'max_timesteps_per_episode': 100, 
+                'gamma': 0.99, 
+                'n_updates_per_iteration': 10,
+                'lr': 3e-4, 
+                'clip': 0.2,
+                'render': True,
+                'render_every_i': 10
+              }
+
+    env = gym.make(
+        "gym_cutting_stock/CuttingStock-v0", 
+        # num_stocks=16,
+        # max_product_type=5,
+        # max_product_per_type=10,
+        # render_mode='human',
+    )
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # print(f"Using device: {device}")
+
+    # Create a model for PPO with device
+    model = PPO(env=env, **hyperparameters)
+
+    # Try loading existing models with proper device mapping
+    if args.actor_model != '' and args.critic_model != '':
+        print(f"Loading in {args.actor_model} and {args.critic_model}...", flush=True)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        actor_path = os.path.join(current_dir, args.actor_model)
+        critic_path = os.path.join(current_dir, args.critic_model)
+        model.actor.load_state_dict(
+            torch.load(actor_path, map_location=device)
+        )
+        model.critic.load_state_dict(
+            torch.load(critic_path, map_location=device)
+        )
+        print(f"Successfully loaded.", flush=True)
+    elif args.actor_model != '' or args.critic_model != '':
+        print(f"Error: Either specify both actor/critic models or none at all.")
+        sys.exit(0)
+    else:
+        print(f"Training from scratch.", flush=True)
+
+    # Train the PPO model
+    model.learn(total_timesteps=200_000_000)
+
+if __name__ == '__main__':
+    args = get_args() # Parse arguments from command line
+    main(args)

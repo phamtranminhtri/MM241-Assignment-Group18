@@ -12,6 +12,7 @@ from ppo_optimized import PPO, ActorNetwork, CriticNetwork
 # from eval_policy import eval_policy
 
 import gym_cutting_stock
+import argparse
 
 def train(env, hyperparameters, actor_model, critic_model):
     print(f"Training", flush=True)
@@ -128,6 +129,27 @@ def main(args):
 	else:
 		test(env=env, actor_model=args.actor_model)
 
+
+def get_args():
+	"""
+		Description:
+		Parses arguments at command line.
+
+		Parameters:
+			None
+
+		Return:
+			args - the arguments parsed
+	"""
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--actor_model', dest='actor_model', type=str, default='')     # your actor model filename
+	parser.add_argument('--critic_model', dest='critic_model', type=str, default='')   # your critic model filename
+
+	args = parser.parse_args()
+	return args
+
+
 if __name__ == '__main__':
 	args = get_args() # Parse arguments from command line
 	main(args)
+

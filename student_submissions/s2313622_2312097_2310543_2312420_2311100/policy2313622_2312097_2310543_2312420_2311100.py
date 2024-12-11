@@ -16,9 +16,24 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
             pass
         
         elif policy_id == 2:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            # ------------------------------------------------------------------------------#
+            # NOTE: The following policy was trained for the default gym_cutting_stock      #
+            # environment parameter:                                                        #
+            # min_w=50,                                                                     #
+            # min_h=50,                                                                     #
+            # max_w=100,                                                                    #
+            # max_h=100,                                                                    #
+            # num_stocks=100,                                                               #
+            # max_product_type=25,                                                          #
+            # max_product_per_type=20,                                                      #
+            # If you use different parameters, you have to retrain the policy for your      #
+            # environment, using the provided ppo_optimized.py script; otherwise, the       #
+            # policy will not work correctly.                                               #
+            # ------------------------------------------------------------------------------#
             self.num_stocks = 100
             self.num_products = 25
+
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             policy = ActorNetwork(num_stocks=self.num_stocks, num_products=self.num_products, device=device).to(device)
             current_dir = os.path.dirname(os.path.abspath(__file__))
             policy_path = os.path.join(current_dir, "ppo_actor.pth")
