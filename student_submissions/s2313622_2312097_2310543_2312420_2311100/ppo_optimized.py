@@ -238,7 +238,6 @@ class PPO:
     def __init__(self, env, **hyperparameters):
         # Check GPU availability
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Using device: {self.device}")
         
         # Initialize hyperparameters for training with PPO
         self._init_hyperparameters(hyperparameters)
@@ -779,8 +778,9 @@ def main(args):
     # For default gym_cutting_stock (num_stocks=100, max_product_type=25, max_product_per_type=20), 
     # training can take up to 8GB of RAM with timesteps_per_batch=100, so if you're running out 
     # of memory, consider reducing these values.
-    # For gym_cutting_stock with num_stocks=16, max_product_type=5, max_product_per_type=10, training 
-    # use less RAM, so you can set timestep_per_batch=300 and max_timesteps_per_episode=60. 
+    # For example: gym_cutting_stock with num_stocks=16, max_product_type=5, max_product_per_type=10, 
+    # use less RAM while training, so you can set timestep_per_batch=300 and 
+    # max_timesteps_per_episode=60. 
     hyperparameters = {
                 'timesteps_per_batch': 100, 
                 'max_timesteps_per_episode': 100, 
@@ -794,18 +794,18 @@ def main(args):
 
     env = gym.make(
         "gym_cutting_stock/CuttingStock-v0", 
-        # num_stocks=16,
-        # max_product_type=5,
-        # max_product_per_type=10,
+        # min_w=50,
+        # min_h=50,
+        # max_w=100,
+        # max_h=100,
+        # num_stocks=100,
+        # max_product_type=25,
+        # max_product_per_type=20,
         # render_mode='human',
-        max_w=80,
-        max_h=80,
-        min_w=40,
-        min_h=40,
     )
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # print(f"Using device: {device}")
+    print(f"Using device: {device}")
 
     # Create a model for PPO with device
     model = PPO(env=env, **hyperparameters)
