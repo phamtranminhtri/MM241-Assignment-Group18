@@ -19,13 +19,39 @@ from torch.optim import Adam
 # CNN-based Encoder Networks
 # ----------------------------------------------------
 class StockCNNEncoder(nn.Module):
-    def __init__(self, device):
+    def __init__(self, max_w, max_h, device):
         super(StockCNNEncoder, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=8, stride=4)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        self.fc = nn.Linear(64 * 9 * 9, 128)  # Adjust if exact shape differs
+        self.max_w = max_w
+        self.max_h = max_h
         self.device = device
+        
+        def conv_output_size(size, kernel_size, stride):
+            return (size - kernel_size) // stride + 1
+        
+        self.kernel_size1 = min(8, max_w//4, max_h//4)  # Reduced from 8 
+        self.stride1 = min(4, max_w//8, max_h//8)  # Reduced from 4
+        self.kernel_size2 = min(4, max_w//8, max_h//8)  # Reduced from 4
+        self.stride2 = min(2, max_w//16, max_h//16)  # Reduced from 2
+        self.kernel_size3 = min(3, max_w//16, max_h//16)  # Reduced from 3
+        self.stride3 = 1
+        
+        # Calculate intermediate output sizes
+        h1 = conv_output_size(max_h, self.kernel_size1, self.stride1)
+        w1 = conv_output_size(max_w, self.kernel_size1, self.stride1)
+        
+        h2 = conv_output_size(h1, self.kernel_size2, self.stride2) 
+        w2 = conv_output_size(w1, self.kernel_size2, self.stride2)
+        
+        h3 = conv_output_size(h2, self.kernel_size3, self.stride3)
+        w3 = conv_output_size(w2, self.kernel_size3, self.stride3)
+        
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=self.kernel_size1, stride=self.stride1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=self.kernel_size2, stride=self.stride2) 
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=self.kernel_size3, stride=self.stride3)
+        
+        # Calculate flattened size for final linear layer
+        self.flat_size = 64 * h3 * w3
+        self.fc = nn.Linear(self.flat_size, 128)
 
     def forward(self, x):
         x = x.to(self.device)
@@ -53,13 +79,15 @@ class ProductEncoder(nn.Module):
 # Actor Network
 # ----------------------------------------------------
 class ActorNetwork(nn.Module):
-    def __init__(self, num_stocks=100, num_products=20, device=None):
+    def __init__(self, num_stocks=100, num_products=20, max_w=100, max_h=100, device=None):
         super(ActorNetwork, self).__init__()
         self.device = device
         self.num_stocks = num_stocks
         self.num_products = num_products
+        self.max_w = max_w
+        self.max_h = max_h
 
-        self.stock_encoder = StockCNNEncoder(device).to(device)
+        self.stock_encoder = StockCNNEncoder(max_w, max_h, device).to(device)
         self.product_encoder = ProductEncoder(device=device).to(device)
 
         # Policy heads
@@ -103,7 +131,7 @@ class ActorNetwork(nn.Module):
         
         # Rest of processing remains the same
         stocks = stocks.unsqueeze(2)  # (B, num_stocks, 1, 100, 100)
-        stocks = stocks.view(B * self.num_stocks, 1, 100, 100)
+        stocks = stocks.view(B * self.num_stocks, 1, self.max_h, self.max_w)
         stock_embeds = self.stock_encoder(stocks)  # (B*num_stocks, 128)
         stock_embeds = stock_embeds.view(B, self.num_stocks, 128)
 
@@ -130,14 +158,16 @@ class ActorNetwork(nn.Module):
 # Critic Network
 # ----------------------------------------------------
 class CriticNetwork(nn.Module):
-    def __init__(self, num_stocks=100, num_products=20, device=None):
+    def __init__(self, num_stocks=100, num_products=20, max_w=100, max_h=100, device=None):
         super(CriticNetwork, self).__init__()
         self.device = device
         
         self.num_stocks = num_stocks
         self.num_products = num_products
+        self.max_w = max_w
+        self.max_h = max_h
 
-        self.stock_encoder = StockCNNEncoder(device).to(device)
+        self.stock_encoder = StockCNNEncoder(max_w, max_h, device).to(device)
         self.product_encoder = ProductEncoder(device=device).to(device)
 
         # Value head
@@ -181,7 +211,7 @@ class CriticNetwork(nn.Module):
         
         # Rest of processing remains the same
         stocks = stocks.unsqueeze(2)  # (B, num_stocks, 1, 100, 100)
-        stocks = stocks.view(B * self.num_stocks, 1, 100, 100)
+        stocks = stocks.view(B * self.num_stocks, 1, self.max_h, self.max_w)
         stock_embeds = self.stock_encoder(stocks)  # (B*num_stocks, 128)
         stock_embeds = stock_embeds.view(B, self.num_stocks, 128)
 
@@ -216,7 +246,7 @@ class PPO:
         # Extract environment information
         self.env = env
         
-        observation, _ = env.reset()
+        observation, _ = env.reset(seed=None)
         self.num_stocks = len(observation["stocks"])
         self.max_h, self.max_w = observation["stocks"][0].shape
         self.num_products = env.unwrapped.max_product_type
@@ -224,9 +254,22 @@ class PPO:
         self.min_w = env.unwrapped.min_w
 
         # Initialize actor and critic networks
-        self.actor = ActorNetwork(num_stocks=self.num_stocks, num_products=self.num_products, device=self.device).to(self.device)
-        self.critic = CriticNetwork(num_stocks=self.num_stocks, num_products=self.num_products, device=self.device).to(self.device)
-
+        self.actor = ActorNetwork(
+            num_stocks=self.num_stocks, 
+            num_products=self.num_products,
+            max_w=self.max_w,
+            max_h=self.max_h,
+            device=self.device
+        ).to(self.device)
+        
+        self.critic = CriticNetwork(
+            num_stocks=self.num_stocks,
+            num_products=self.num_products, 
+            max_w=self.max_w,
+            max_h=self.max_h,
+            device=self.device
+        ).to(self.device)
+        
         # Initialize optimizers for actor and critic
         self.actor_optim = Adam(self.actor.parameters(), lr=self.lr)
         self.critic_optim = Adam(self.critic.parameters(), lr=self.lr)
@@ -755,6 +798,10 @@ def main(args):
         # max_product_type=5,
         # max_product_per_type=10,
         # render_mode='human',
+        max_w=80,
+        max_h=80,
+        min_w=40,
+        min_h=40,
     )
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
