@@ -402,7 +402,8 @@ class PPO:
             self._log_summary()
 
             # Save our model if it's time
-            if i_so_far % self.save_freq == 1:
+            if i_so_far % self.save_freq == 0:
+                print("Saving actor and critic models...")
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 actor_path = os.path.join(current_dir, "ppo_actor.pth")
                 critic_path = os.path.join(current_dir, "ppo_critic.pth")
@@ -487,7 +488,7 @@ class PPO:
 
                 obs, rew, terminated, truncated, info = self.env.step(action)
                 done = terminated or truncated or ep_t == self.max_timesteps_per_episode - 1 or t == self.timesteps_per_batch
-                rew = self.get_reward(info, done)
+                rew = self.get_reward(obs, action, product_index, info, done, new_stock)
                 # Track recent reward, action, and action log probability
                 ep_rews.append(rew)
                 ep_vals.append(val.flatten())
@@ -706,11 +707,30 @@ class PPO:
         self.logger['actor_losses'] = []
 
     
-    def get_reward(self, info, done):
-        if done:
-            return (1.0 - info['trim_loss']) * 200.0  # Adjusted scaling
+    def get_reward(self, obs, action, product_idx, info, done, new_stock):
+        # Remove invalid action penalty (since invalid actions are masked)
+
+        # Calculate placement efficiency
+        product_area = action['size'][0] * action['size'][1]
+        # Set this to the actual maximum product area
+        area_ratio = product_area / self.max_product_area
+
+        if new_stock:
+            # Penalize starting new stock moderately
+            base_reward = -10.0
         else:
-            return 0
+            # Reward using existing stock
+            base_reward = 10.0
+        
+        # Scale reward by area ratio
+        placement_reward = base_reward + area_ratio * 10.0  # Adjusted scaling
+        
+        if done:
+            # Bonus for completion with emphasis on efficiency
+            efficiency_bonus = (1.0 - info['trim_loss']) * 200.0  # Adjusted scaling
+            placement_reward += efficiency_bonus
+        # print(f"Reward: {placement_reward}")
+        return placement_reward
 
     
 def greedy(stocks, stock_idx, prod_size):

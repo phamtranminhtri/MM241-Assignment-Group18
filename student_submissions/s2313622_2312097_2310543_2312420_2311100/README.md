@@ -1,6 +1,6 @@
 # Instructions for the RL policy
+
 **ACKNOWLEDGEMENT**: This code is based on the PPO implementation from the following source: https://github.com/ericyangyu/PPO-for-Beginners
--
 
 The file `ppo_optimized.py` contains the code necessary for training and running the policy for the Reinforcement Learning algorithm: in this case, Proximal Policy Optimization (PPO). The policy network's parameters are stored in `ppo_actor.pth` and `ppo_critic.pth`.
 
@@ -33,4 +33,4 @@ python ppo_optimized.py
 python ppo_optimized.py --actor_model ppo_actor.pth --critic_model ppo_critic.pth
 ```
 
-- To run the policy for testing: Go back to the original `main.py` file in the parent directory and call the policy. Remember to use the correct configuration of `gym_cutting_stock` environment while running.
+- To run the policy for testing: Go back to the original `main.py` file in the parent directory (run `cd ../..` then simply `python main.py`) and call the policy. Remember to use the correct configuration of `gym_cutting_stock` environment while running.
