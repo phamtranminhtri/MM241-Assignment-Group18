@@ -224,3 +224,73 @@ class GreedySAPolicy(Policy):
             overlap, overlap_register,
             area
         )
+
+    # Calculate the probability of transitioning to the next state.
+    def transition_probability(self, current_state_energy, next_state_energy, temperature):
+        if next_state_energy <= current_state_energy:
+            return 1
+        
+        return exp((current_state_energy - next_state_energy) / temperature)
+    
+
+    # Check if the position for placing the item is within the stock's bounds.
+    def is_inside(self, stock_width, stock_height, product_size, position):
+        return product_size[0] + position[0] <= stock_width and product_size[1] + position[1] <= stock_height
+    
+    # Helper function to generate a random integer centered around 0, following a normal distribution.
+    def rand(self, std):
+        return int(random.randn() * std)
+    
+    # Choose a random next state that is near the current state.
+    def choose_next_state(self, current_state, overlap_register):
+        next_state = current_state.copy()
+        prob_list = np.array(overlap_register, dtype = np.float32)
+        overlap_num = prob_list.sum()
+        if overlap_num == len(current_state):
+            prob_list /= len(current_state)
+        elif overlap_num > 0:
+            prob_list += 0.3 * overlap_num / (0.7 * len(current_state) - overlap_num).clip(1e-5)
+            prob_list /= prob_list.sum()
+        else:
+            prob_list += 1
+            prob_list /= len(current_state)
+
+        # Swap the positions of two randomly selected items that are near each other.
+        if random.randint(0, 100) > 50:
+            i = random.randint(0, self.num_items)
+            j = min(max(0, i + self.rand(20)), self.num_items - 1)
+            wi, hi, zi, xi, yi = next_state[i]
+            wj, hj, zj, xj, yj = next_state[j]
+
+            if self.is_inside(self.stocks[zi]["width"], self.stocks[zi]["height"], (wj, hj), (xi, yi)) and \
+               self.is_inside(self.stocks[zj]["width"], self.stocks[zj]["height"], (wi, hi), (xj, yj)):
+                next_state[i][:2] = [wj, hj]
+                next_state[j][:2] = [wi, hi]
+        
+        # Move a randomly selected item to another randomly selected stock, prioritizing items with overlap.
+        if random.randint(0, 100) > 40:
+            i = random.choice(self.num_items, p = prob_list)
+            wi, hi, zi, xi, yi = next_state[i]
+            new_stock_index = min(max(0, zi + self.rand(15)), self.num_stocks - 1)
+
+            if self.is_inside(self.stocks[new_stock_index]["width"], self.stocks[new_stock_index]["height"], (wi, hi), (xi, yi)):
+                next_state[i][2] = new_stock_index
+
+        # Move a randomly selected item to a nearby random location, prioritizing items with overlap.
+        if random.randint(0, 100) > 10:
+            i = random.choice(self.num_items, p = prob_list)
+            wi, hi, zi, xi, yi = next_state[i]
+
+            next_state[i][3:] = [
+                min(max(0, xi + self.rand(30)), self.stocks[zi]["width"] - wi),
+                min(max(0, yi + self.rand(30)), self.stocks[zi]["height"] - hi)
+            ]
+
+        # Rotate a randomly selected item, prioritizing items with overlap.
+        if random.randint(0, 100) > 30:
+            i = random.choice(self.num_items, p = prob_list)
+            wi, hi, zi, xi, yi = next_state[i]
+
+            next_state[i][:2] = [hi, wi]
+
+        return next_state
