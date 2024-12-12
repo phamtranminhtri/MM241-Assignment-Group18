@@ -25,6 +25,69 @@ class SortedList:
     def __getitem__(self, index):
         return self.sorted_array[index]
     
+class CuttingStock2DModel(nn.Module):
+    """
+    A deep neural network model designed for the 2D cutting stock problem.
+
+    This model consists of fully connected layers with Leaky ReLU activations, 
+    and uses Softmax and Sigmoid functions in the final layers. It predicts 
+    probabilities for stock selection, product selection, and product rotation 
+    based on the input state.
+    """
+    def __init__(self, num_stocks, max_num_product_types, max_products_per_type):
+        super().__init__()
+        # The size of the state vector. For example, it will be 2168 when the number of stocks is 100, 
+        # the maximum number of product types is 24, and the maximum number of products per type is 20.
+        state_size = num_stocks * 2 + max_num_product_types * max_products_per_type * 4 + max_num_product_types * 2
+
+        # Neural network dedicated to stock prediction.
+        self.stock_layer = []
+        layer_sizes = [state_size, 1536, 1024, 512, 256, 128, num_stocks]
+        for i in range(1, len(layer_sizes)):
+            self.stock_layer.append(nn.Linear(layer_sizes[i-1], layer_sizes[i]))
+            self.stock_layer.append(nn.LeakyReLU())
+        self.stock_layer = nn.Sequential(*[*self.stock_layer, nn.Linear(num_stocks, num_stocks), nn.Softmax(-1)])
+
+        # Neural network dedicated to product prediction.
+        self.product_layer = []
+        layer_sizes = [state_size, 1536, 1024, 512, 256, 128, 64]
+        for i in range(1, len(layer_sizes)):
+            self.product_layer.append(nn.Linear(layer_sizes[i-1], layer_sizes[i]))
+            self.product_layer.append(nn.LeakyReLU())
+        self.product_layer = nn.Sequential(*[
+            *self.product_layer, 
+            nn.Linear(64, max_num_product_types), 
+            nn.Softmax(-1)
+        ])
+
+        # Neural network dedicated to product rotation.
+        # 0 is not rotated, 1 is rotated.
+        self.rotate_layer = []
+        layer_sizes = [state_size, 1024, 512, 256, 128, 32]
+        for i in range(1, len(layer_sizes)):
+            self.rotate_layer.append(nn.Linear(layer_sizes[i-1], layer_sizes[i]))
+            self.rotate_layer.append(nn.LeakyReLU())
+        self.rotate_layer = nn.Sequential(*[
+            *self.rotate_layer, 
+            nn.Linear(32, 1), 
+            nn.Sigmoid()
+        ])
+
+    # Input shape: (2168,)
+    #     [0 - 200]     : normalized width and height of up to 100 stocks
+    #     [200 - 248]   : normalized width and height of up to 24 product types
+    #     [248 - 1208]  : normalized coordinates of up to 24 * 20 products
+    #     [1208 - 1688] : normalized index of the stock each product belongs to
+    #     [1688 - 2168] : rotation status of each product (rotated or not)
+    def forward(self, input):
+        stock_prob = self.stock_layer(input) + 0.01
+        stock_prob = stock_prob / stock_prob.sum(dim = -1, keepdims = True)
+        product_prob = self.product_layer(input) + 0.05
+        product_prob = product_prob / product_prob.sum(-1, keepdims = True)
+        rotate_prob = self.rotate_layer(input) * 0.8 + 0.1
+
+        return stock_prob, product_prob, rotate_prob
+
 class GreedySAPolicy(Policy):
     """
     This policy first applies a greedy approach, followed by simulated annealing to refine the result. 
@@ -45,7 +108,50 @@ class GreedySAPolicy(Policy):
         self.product_indices = None
         self.state_matrix = []
         self.actions = []
+
+    def get_action(self, observation, info):
+        # Reset state if a new game has started.
+        if info["filled_ratio"] == 0: self.reset()
+
+        # The first time this method is called in a new game, it will calculate all the 
+        # necessary cut positions for the items. After that, no further calculations are required.
+        if self.first_time:
+            self.num_stocks = len(observation["stocks"])
+            self.num_products = len(observation["products"])
+            self.num_items = 0
+
+            for stock in observation["stocks"]:
+                stock_width, stock_height = self._get_stock_size_(stock)
+                self.stocks.append({
+                    "width": stock_width,
+                    "height": stock_height,
+                    "products": [],
+                    "top_bound": 0,
+                    "right_bound": 0,
+                    "grid": [SortedList([0, stock_width]), SortedList([0, stock_height])],
+                    "occupied_cells": [[False]]
+                })
+
+            self.stock_indices = np.arange(self.num_stocks)
+
+            for product in observation["products"]:
+                self.products.append({
+                    "width": product["size"][0],
+                    "height": product["size"][1],
+                    "demands": product["quantity"]
+                })
+                self.num_items += product["quantity"]
+            
+            self.product_indices = np.arange(self.num_products)
+            self.greedy()
+            self.simulated_annealing()
+            self.first_time = False
         
+        # Get the action.
+        action = self.actions[self.step]
+        self.step += 1
+        return action
+    
     def greedy(self):
         # Sort the stocks array in descending order of stock areas.
         self.stock_indices, _ = zip(
@@ -155,7 +261,7 @@ class GreedySAPolicy(Policy):
                                 if stock["top_bound"] < horizontals[i] + product_height:
                                     stock["top_bound"] = horizontals[i] + product_height
                                 return verticals[j], horizontals[i]
-
+    
     @staticmethod
     def tighten(stocks, stocks_sort):
         # Sort the stocks array in descending order of wasted areas.
@@ -185,7 +291,7 @@ class GreedySAPolicy(Policy):
                     stock["right_bound"] = 0
                     stock["top_bound"] = 0
                     break
-
+              
     # Calculate energy of the given state.
     def energy(self, state, step = 0):
         # Define hyperparameters.
