@@ -113,3 +113,33 @@ class GreedySAPolicy(Policy):
                                 if stock["top_bound"] < horizontals[i] + product_height:
                                     stock["top_bound"] = horizontals[i] + product_height
                                 return verticals[j], horizontals[i]
+
+    @staticmethod
+    def tighten(stocks, stocks_sort):
+        # Sort the stocks array in descending order of wasted areas.
+        wasted_indices = np.arange(len(stocks))
+        wasted_indices, _ = zip(
+            *sorted(
+                zip(wasted_indices, stocks), 
+                key = lambda x: float("inf") if x[1]["right_bound"] * x[1]["top_bound"] == 0 
+                else x[1]["right_bound"] * x[1]["top_bound"] - x[1]["width"] * x[1]["height"]
+            )
+        )
+
+        # Iterate through the most wasted stocks and move all their products to other stocks if smaller.
+        for stock_index in wasted_indices:
+            stock = stocks[stock_index]
+            # Start by checking the smallest stocks first.
+            for i in stocks_sort[::-1]:
+                replace_stock = stocks[i]
+                if replace_stock["top_bound"] * replace_stock["right_bound"] == 0 and \
+                   replace_stock["width"] >= stock["right_bound"] and replace_stock["height"] >= stock["top_bound"] and \
+                   replace_stock["width"] * replace_stock["height"] < stock["width"] * stock["height"]:
+                    replace_stock["products"] = stock["products"]
+                    replace_stock["right_bound"] = stock["right_bound"]
+                    replace_stock["top_bound"] = stock["top_bound"]
+
+                    stock["products"] = []
+                    stock["right_bound"] = 0
+                    stock["top_bound"] = 0
+                    break
