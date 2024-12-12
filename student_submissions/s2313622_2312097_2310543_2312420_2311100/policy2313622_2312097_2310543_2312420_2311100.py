@@ -4,19 +4,18 @@ import torch
 import numpy as np
 from torch.distributions import Categorical
 import os
+import torch.nn as nn
+import torch.optim as optim
 
 
 class Policy2313622_2312097_2310543_2312420_2311100(Policy):
     def __init__(self, policy_id=1):
-        assert policy_id in [1, 2], "Policy ID must be 1 or 2"
+        assert policy_id in [1, 2 , 3], "Policy ID must be 1 or 2 or 3"
 
         # Student code here
         if policy_id == 1:
-            self.id = policy_id
-            self.policy = self.HeuristicPolicy()
-        
-        elif policy_id == 2:
-            # ------------------------------------------------------------------------------#
+            
+            #-------------------------------------------------------------------------------#
             # NOTE: The following policy was trained for the default gym_cutting_stock      #
             # environment parameter:                                                        #
             # min_w=50,                                                                     #
@@ -29,12 +28,13 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
             # If you use different parameters, you have to retrain the policy for your      #
             # environment, using the provided ppo_optimized.py script; otherwise, the       #
             # policy will not work correctly.                                               #
-            # ------------------------------------------------------------------------------#
-            self.num_stocks = 100
-            self.num_products = 25
+            #-------------------------------------------------------------------------------#
+            
+            self.num_stocks = 100   # Change this value if you use a different environment
+            self.max_product_type = 25  # Change this value if you use a different environment
 
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            policy = ActorNetwork(num_stocks=self.num_stocks, num_products=self.num_products, device=device).to(device)
+            policy = ActorNetwork(num_stocks=self.num_stocks, num_products=self.max_product_type, device=device).to(device)
             current_dir = os.path.dirname(os.path.abspath(__file__))
             policy_path = os.path.join(current_dir, "ppo_actor.pth")
             policy.load_state_dict(
@@ -45,14 +45,21 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
             )
             self.id = policy_id
             self.policy = policy
+        elif policy_id == 2:
+            self.id = policy_id
+            self.policy = self.Heuristic_RL_Policy()
+            
+        elif policy_id == 3:
+            self.id = policy_id
+            self.policy = self.HeuristicPolicy()
+            
+        
             
 
     def get_action(self, observation, info):
         # Student code here
-        if self.id == 1:
-            return self.policy.get_action(observation, info)
         
-        elif self.id == 2:
+        if self.id == 1:
             obs = observation
             
             # Extract observation components
@@ -69,7 +76,7 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
                 products_list.append(product_features)
 
             # Calculate padding length
-            pad_length = self.num_products - len(products_list)
+            pad_length = self.max_product_type - len(products_list)
 
             # Pad both arrays if needed
             if pad_length > 0:
@@ -110,6 +117,9 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
             # Return the sampled action and the log probability of that action in our distribution
             return action
 
+        elif self.id == 2 or self.id == 3:
+            return self.policy.get_action(observation, info)
+        
     # Student code here
     # You can add more functions if needed
     def greedy(self, stocks, stock_idx, prod_size):
@@ -289,3 +299,251 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
                     self.solutions.append({"stock_idx": stock_idx, "size": [prod_w, stock_h - prod_h], "position": (stock_x, stock_y + prod_h)})
 
             self.solutions = sorted(self.solutions, key=lambda x: min(x["size"]), reverse=False)
+
+    class Heuristic_RL_Policy(HeuristicPolicy):
+
+        def reset(self, prods, stocks, _try = 20, _iteration = 5, _number_of_model = 10):
+            self.actions = []
+            self.solutions = []
+            self.sorted_stock = [(((stock_size := self._get_stock_size_(stock))[0], stock_size[1]),i) for i, stock in enumerate(stocks)]
+            
+            ###### TRAIN
+            env = Policy2313622_2312097_2310543_2312420_2311100.My_Environment(prods, stocks)
+            policy = Policy2313622_2312097_2310543_2312420_2311100.HeuristicPolicy()
+
+            # predict
+            env_prods, env_info = env.reset(prods, stocks)
+            env_terminated = 0
+            while env_terminated == 0:
+                action = policy.get_action({"products": env_prods, "stocks": stocks}, env_info)
+                env_prods, env_info, env_terminated = env.step(action)
+            _mean = env_info["trim_loss"].copy()
+            _origin_mean = env_info["trim_loss"].copy()
+
+            ###### ENDING TRAIN
+
+            list_model = []
+            list_trim_loss = []
+            for _ in range(_number_of_model):
+                list_model.append(Policy2313622_2312097_2310543_2312420_2311100.Model(len(prods) + len(stocks), len(prods) + len(stocks)))
+                list_trim_loss.append(env_info["trim_loss"])
+
+            for i_try in range(_try):
+                for i_iteration in range(_iteration):
+                    for i in range(_number_of_model):
+                        env_info = list_model[i].train(env, prods, stocks)
+                        reward = (-env_info["trim_loss"] + _mean) * 100
+                        list_model[i].update_parameters(reward)
+                    
+                for i in range(_number_of_model):
+                    env_info = list_model[i].train(env, prods, stocks)
+                    list_trim_loss[i] = env_info["trim_loss"]
+
+                if (min(list_trim_loss) <= _mean):
+                    _mean = min(list_trim_loss)
+                    reset_value = sum(list_trim_loss) / len(list_trim_loss)
+                    for i in range(_number_of_model):
+                        if list_trim_loss[i] > reset_value:
+                            list_model[i].reset_model()
+                else:
+                    for _ in range(_number_of_model):
+                        list_model[i].reset_model()
+                        list_trim_loss[i] = _mean
+
+            for i in range(_number_of_model):
+                if (list_trim_loss[i] == min(list_trim_loss)):
+                    min_model = list_model[i]
+                    break
+
+            if (min(list_trim_loss) < _origin_mean):
+                list_m, list_n = min_model.predict(prods, self.sorted_stock)
+                self.prod_indice = sorted(range(len(prods)), key=lambda i: list_m[i], reverse=True)
+                self.sorted_stock = sorted(self.sorted_stock, key=lambda x: list_n[x[1]], reverse=True)
+            else:
+                self.prod_indice = sorted(range(len(prods)), key=lambda i: prods[i]["size"][0] * prods[i]["size"][1], reverse=True)
+                self.sorted_stock = sorted([(self._get_stock_size_(stock), i) for i, stock in enumerate(stocks)], key=lambda x: x[0][0] * x[0][1], reverse=False)
+                #print("fail")
+
+    class My_Environment(Policy):
+
+        def __init__(self, prods, stocks):
+            self.prods = [{"size": (int(prod["size"][0]), int(prod["size"][1])), "quantity": int(prod["quantity"])} for prod in prods]
+            self.stocks = [(self._get_stock_size_(stock)) for stock in stocks]
+            self.info = {"filled_ratio": 0, "trim_loss": 0}
+            self.used_stocks = []
+        
+        def reset(self, prods, stocks):
+            self.prods = [{"size": (int(prod["size"][0]), int(prod["size"][1])), "quantity": int(prod["quantity"])} for prod in prods]
+            #self.stocks = [(self._get_stock_size_(stock)) for stock in stocks]
+            self.info = {"filled_ratio": 0, "trim_loss": 0}
+            self.used_stocks = []
+            return self.prods, self.info
+
+        def step(self, action):
+            if action["stock_idx"] == -1:
+                return 1
+
+            # get value
+            action_w, action_h = action["size"]
+            action_idx = action["stock_idx"]
+
+            # check new stock
+            new_stock = 1
+            if self.used_stocks:
+                for used_stock in self.used_stocks:
+                    if used_stock == action_idx:
+                        new_stock = 0
+            if new_stock == 1:
+                self.info["trim_loss"] = (self.info["trim_loss"] * len(self.used_stocks) + 1) / (len(self.used_stocks) + 1)
+                self.used_stocks.append(action_idx)
+                self.info["filled_ratio"] = len(self.used_stocks) / len(self.stocks)
+            
+            self.info["trim_loss"] = (self.info["trim_loss"] * len(self.used_stocks) - (action_w * action_h) / (self.stocks[action_idx][0] * self.stocks[action_idx][1])) / len(self.used_stocks)
+
+
+            terminated = 1
+            for prod in self.prods:
+                prod_w, prod_h = prod["size"]
+                if (prod_w == action_w and prod_h == action_h) or (prod_w == action_w and prod_h == action_h):
+                    prod["quantity"] -= 1
+                if prod["quantity"] != 0:
+                    terminated = 0
+            return self.prods, self.info, terminated
+
+
+    class ActorCritic(nn.Module):
+        def __init__(self, input_size, output_size, hidden_size=128):
+            super(Policy2313622_2312097_2310543_2312420_2311100.ActorCritic, self).__init__()
+            self.actor = nn.Sequential(
+                nn.Linear(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, output_size), 
+                nn.Sigmoid()
+            )
+            self.critic = nn.Sequential(
+                nn.Linear(input_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, hidden_size),
+                nn.ReLU(),
+                nn.Linear(hidden_size, 1)  # Value function estimation
+            )
+
+        def forward(self, x):
+            action_probs = self.actor(x)
+            value = self.critic(x)
+            return action_probs, value
+
+    class Model(HeuristicPolicy):
+
+        def reset_model(self):
+            self.model = Policy2313622_2312097_2310543_2312420_2311100.ActorCritic(input_size=self.input_size, output_size=self.output_size, hidden_size=self.hidden_size)
+
+        def __init__(self, input_size, output_size, hidden_size=128, lr=0.00001):
+            self.model = Policy2313622_2312097_2310543_2312420_2311100.ActorCritic(input_size=input_size, output_size=output_size, hidden_size=hidden_size)
+            self.input_size = input_size
+            self.output_size = output_size
+            self.hidden_size = hidden_size
+            self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
+            self.prediction_count = 0
+            #self.gamma = 0.99
+            self.clip_epsilon = 0.5
+            self.c_v = 1
+            self.beta = 0.01
+            self.probabilities_ = []
+            self.value_ = []
+
+        def train(self, env, prods, stocks):
+            env_prods, env_info = env.reset(prods, stocks)
+            env_terminated = 0
+            while env_terminated == 0:
+                action = self.get_action({"products": env_prods, "stocks": stocks}, env_info)
+                env_prods, env_info, env_terminated = env.step(action)
+            return env_info
+
+        def predict(self, prods, stocks):
+            # builld input
+            input_prods = [prod["size"][0] * prod["size"][1] * prod["quantity"] for prod in prods]
+            input_stocks = [stock[0][0]* stock[0][1] for stock in stocks]
+            max_size = max(input_stocks) * 1.25
+            tensor_prods = torch.tensor(input_prods, dtype=torch.float32) / max_size
+            tensor_stocks = torch.tensor(input_stocks, dtype=torch.float32) / max_size
+            input_tensor = torch.cat((tensor_prods, tensor_stocks), dim=0)
+            input_tensor = input_tensor.unsqueeze(0)
+
+            # forward
+            action_probs, value = self.model(input_tensor)
+
+            tensor_m = action_probs[:, :len(prods)]
+            tensor_n = action_probs[:, len(prods):len(prods) + len(stocks)]
+            list_m = tensor_m.squeeze(0).tolist()
+            list_n = tensor_n.squeeze(0).tolist()
+
+            return list_m, list_n
+
+        def reset(self, prods, stocks):
+            self.actions = []
+            self.solutions = []
+            self.sorted_stock = [(((stock_size := self._get_stock_size_(stock))[0], stock_size[1]),i) for i, stock in enumerate(stocks)]
+
+            # builld input
+            input_prods = [prod["size"][0] * prod["size"][1] * prod["quantity"] for prod in prods]
+            input_stocks = [stock[0][0]* stock[0][1] for stock in self.sorted_stock]
+            max_size = max(input_stocks) * 1.25
+            tensor_prods = torch.tensor(input_prods, dtype=torch.float32) / max_size
+            tensor_stocks = torch.tensor(input_stocks, dtype=torch.float32) / max_size
+            input_tensor = torch.cat((tensor_prods, tensor_stocks), dim=0)
+            input_tensor = input_tensor.unsqueeze(0)
+
+            # forward
+            action_probs, value = self.model(input_tensor)
+
+            tensor_m = action_probs[:, :len(prods)]
+            tensor_n = action_probs[:, len(prods):len(prods) + len(stocks)]
+            list_m = tensor_m.squeeze(0).tolist()
+            list_n = tensor_n.squeeze(0).tolist()
+
+            # save
+            self.probabilities_.append(action_probs)
+            self.value_.append(value)
+
+            self.prod_indice = sorted(range(len(prods)), key=lambda i: list_m[i], reverse=True)
+            self.sorted_stock = sorted(self.sorted_stock, key=lambda x: list_n[x[1]], reverse=True)
+
+        def update_parameters(self, reward):
+            """
+            Update parameters using PPO policy loss and value loss.
+            """
+            # Dummy reward and advantage for demonstration
+            action_probs = self.probabilities_.pop()
+            value = self.value_.pop()
+            #rewards = []
+            #discounted_reward = 0
+            #for reward in reversed(reward):
+            #    discounted_reward = reward + self.gamma * discounted_reward
+            #    rewards.insert(0, discounted_reward)
+            #rewards = torch.tensor(rewards)
+            rewards = torch.tensor(reward).unsqueeze(-1)
+            #print(sum(rewards))
+            advantage = rewards - value.detach()
+
+            # PPO Loss Calculation
+            old_probs = action_probs.detach()
+            log_probs = torch.log(action_probs + 1e-10)
+            ratio = torch.exp(log_probs - torch.log(old_probs + 1e-10))
+            surr1 = ratio * advantage
+            surr2 = torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon) * advantage
+
+            entropy = -(action_probs.detach() * torch.log(action_probs.detach() + 1e-10)).sum(dim=-1).mean()
+            policy_loss = -torch.min(surr1, surr2).mean()
+            value_loss = (rewards - value).pow(2).mean()
+
+            # Combined loss
+            loss = policy_loss + self.c_v * value_loss - self.beta * entropy
+            #print(loss)
+
+            # Backpropagation
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()

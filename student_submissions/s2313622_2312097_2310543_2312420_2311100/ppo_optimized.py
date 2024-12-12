@@ -2,6 +2,7 @@
 # https://github.com/ericyangyu/PPO-for-Beginners
 
 import argparse
+import csv
 import gym_cutting_stock
 import gymnasium as gym
 import numpy as np
@@ -687,7 +688,18 @@ class PPO:
         avg_ep_lens = str(round(avg_ep_lens, 2))
         avg_ep_rews = str(round(avg_ep_rews, 2))
         avg_actor_loss = str(round(avg_actor_loss, 5))
-
+        
+        # Store log in CSV file
+        log_file = "training_log.csv"
+        headers = ['Iteration', 'Avg_Episode_Length', 'Avg_Episode_Reward', 'Avg_Loss', 'Timesteps', 'Delta_t', 'Learning_Rate']
+        log_data = [i_so_far, avg_ep_lens, avg_ep_rews, avg_actor_loss, t_so_far, delta_t, lr]
+        
+        file_exists = os.path.isfile(log_file)
+        with open(log_file, 'a', newline='') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(headers)
+            writer.writerow(log_data)
 
         # Print logging statements
         print(flush=True)
