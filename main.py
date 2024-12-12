@@ -43,16 +43,31 @@ if __name__ == "__main__":
 
     # Uncomment the following code to test your policy
     # Reset the environment
-    observation, info = env.reset(seed=42)
-    print(info)
+    # observation, info = env.reset(seed=42)
+    # print(info)
 
-    policy2313622_2312097_2310543_2312420_2311100 = Policy2313622_2312097_2310543_2312420_2311100(policy_id=2)
-    for _ in range(200):
-        action = policy2313622_2312097_2310543_2312420_2311100.get_action(observation, info)
+    # policy2313622_2312097_2310543_2312420_2311100 = Policy2313622_2312097_2310543_2312420_2311100(policy_id=2)
+    # for _ in range(200):
+    #     action = policy2313622_2312097_2310543_2312420_2311100.get_action(observation, info)
+    #     observation, reward, terminated, truncated, info = env.step(action)
+    #     print(info)
+
+    #     if terminated or truncated:
+    #         observation, info = env.reset()
+            
+        # # Reset the environment
+    observation, info = env.reset(seed=42)
+
+    # Test RandomPolicy
+    policy = Policy2313622_2312097_2310543_2312420_2311100(policy_id=2)
+    ep = 0
+    while ep < NUM_EPISODES:
+        action = policy.get_action(observation, info)
         observation, reward, terminated, truncated, info = env.step(action)
-        print(info)
 
         if terminated or truncated:
-            observation, info = env.reset()
+            print(info)
+            observation, info = env.reset(seed=ep)
+            ep += 1
 
 env.close()

@@ -13,7 +13,7 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
         # Student code here
         if policy_id == 1:
             self.id = policy_id
-            pass
+            self.policy = self.HeuristicPolicy()
         
         elif policy_id == 2:
             # ------------------------------------------------------------------------------#
@@ -50,7 +50,7 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
     def get_action(self, observation, info):
         # Student code here
         if self.id == 1:
-            pass
+            return self.policy.get_action(observation, info)
         
         elif self.id == 2:
             obs = observation
@@ -147,3 +147,145 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
                             find = 0
 
         return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
+    
+    class HeuristicPolicy(Policy):
+        def __init__(self):
+            self.prod_indice = []
+            self.sorted_stock = []
+            self.solutions = []
+            self.actions = []
+
+        def get_action(self, observation, info):
+        
+            if info["filled_ratio"] == 0:
+                self.reset(observation["products"], observation["stocks"])
+
+            while self.actions or self.solutions or self.sorted_stock:
+
+                if not self.actions:
+                    self.new_action(observation["products"])
+
+                if self.actions:
+                    return self.actions.pop(0)
+            
+                if not self.solutions:
+                    self.new_solution(observation["products"])
+
+                if not self.solutions:
+                    return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
+
+        def reset(self, prods, stocks):
+            self.actions = []
+            self.solutions = []
+            self.prod_indice = sorted(range(len(prods)), key=lambda i: prods[i]["size"][0] * prods[i]["size"][1], reverse=True)
+            self.sorted_stock = sorted([(self._get_stock_size_(stock), i) for i, stock in enumerate(stocks)], key=lambda x: x[0][0] * x[0][1], reverse=False)
+
+        def new_solution(self, prods):
+            if not self.prod_indice:
+                return
+
+            while prods[self.prod_indice[0]]["quantity"] == 0:
+                self.prod_indice.pop(0)
+
+            prod_w, prod_h = prods[self.prod_indice[0]]["size"]
+            quantity = prods[self.prod_indice[0]]["quantity"]
+
+            # find smallest prod can be used
+            max_stock = 0
+            _max = -1
+
+            for stock in self.sorted_stock:
+                stock_w, stock_h = stock[0]
+                if stock_w >= prod_w and stock_h >= prod_h:
+                    if (stock_w // prod_w) * (stock_h // prod_h) > _max:
+                        _max = (stock_w // prod_w) * (stock_h // prod_h)
+                        max_stock = stock
+                        if _max >= quantity:
+                            break
+
+                if stock_w >= prod_h and stock_h >= prod_w:
+                    if (stock_w // prod_h) * (stock_h // prod_w) > _max:
+                        _max = (stock_w // prod_h) * (stock_h // prod_w)
+                        max_stock = stock
+                        if _max >= quantity:
+                            break
+
+            if _max == -1:
+                return
+            self.solutions = [{"stock_idx": max_stock[1], "size": max_stock[0], "position": (0, 0)}]
+            self.sorted_stock.remove(max_stock)
+
+        def new_action(self, prods):
+            # choose product
+            if not self.solutions:
+                return
+
+            stock_idx = self.solutions[0]["stock_idx"]
+
+            while self.solutions:
+                solution = self.solutions[0]
+                stock_w, stock_h = solution["size"]
+                self.solutions.pop(0)
+
+                # Try to find the first fit product
+                for prod_idx in self.prod_indice:
+                    prod = prods[prod_idx]
+            
+                    if prod["quantity"] > 0:
+                        prod_size = prod["size"]
+                        prod_w, prod_h = prod_size
+
+                        if stock_w >= prod_w and stock_h >= prod_h:
+                            if stock_w >= prod_h and stock_h >= prod_w:
+                                if (stock_w // prod_w) * (stock_h // prod_h) >= (stock_w // prod_h) * (stock_h // prod_w):
+                                    self.get_solution(solution, prod)
+                                    return
+                                else:
+                                    prod["size"] = prod["size"][::-1]
+                                    self.get_solution(solution, prod)
+                                    return
+                            self.get_solution(solution, prod)
+                            return
+                        else:
+                            if stock_w >= prod_h and stock_h >= prod_w:
+                                prod["size"] = prod["size"][::-1]
+                                self.get_solution(solution, prod)
+                                return
+
+        def get_solution(self, solution, prod):
+            quantity = prod["quantity"]
+            prod_size = prod["size"]
+            prod_w, prod_h = prod_size
+            stock_w, stock_h = solution["size"]
+            stock_x, stock_y = solution["position"]
+            stock_idx = solution["stock_idx"]
+
+            cut_w = stock_w // prod_w
+            cut_h = stock_h // prod_h
+
+            if cut_w * cut_h > quantity:
+                cut_h = quantity // cut_w
+            if cut_h == 0:
+                cut_w = quantity
+                cut_h = 1
+
+            for x in range(cut_w):
+                for y in range(cut_h):
+                    self.actions.append({"stock_idx": stock_idx, "size": prod_size, "position": (stock_x + x * prod_w, stock_y + y * prod_h)})
+
+            prod_w *= cut_w
+            prod_h *= cut_h
+
+            # add solutions
+            if (stock_w - prod_w) * stock_h < (stock_h - prod_h) * stock_w:
+                if stock_w - prod_w != 0:
+                    self.solutions.append({"stock_idx": stock_idx, "size": [stock_w - prod_w, prod_h], "position": (stock_x + prod_w, stock_y)})
+                if stock_h - prod_h != 0:
+                    self.solutions.append({"stock_idx": stock_idx, "size": [stock_w, stock_h - prod_h], "position": (stock_x, stock_y + prod_h)})
+            else:
+                if stock_w - prod_w != 0:
+                    self.solutions.append({"stock_idx": stock_idx, "size": [stock_w - prod_w, stock_h], "position": (stock_x + prod_w, stock_y)})
+                if stock_h - prod_h != 0:
+                    self.solutions.append({"stock_idx": stock_idx, "size": [prod_w, stock_h - prod_h], "position": (stock_x, stock_y + prod_h)})
+
+            self.solutions = sorted(self.solutions, key=lambda x: min(x["size"]), reverse=False)
