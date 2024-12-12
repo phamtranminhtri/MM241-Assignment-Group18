@@ -45,7 +45,49 @@ class GreedySAPolicy(Policy):
         self.product_indices = None
         self.state_matrix = []
         self.actions = []
+        
+    def greedy(self):
+        # Sort the stocks array in descending order of stock areas.
+        self.stock_indices, _ = zip(
+            *sorted(zip(self.stock_indices, self.stocks), key = lambda x: -x[1]["width"] * x[1]["height"])
+        )
 
+        # Sort the products array in descending order of item areas.
+        self.product_indices, _ = zip(
+            *sorted(zip(self.product_indices, self.products), key = lambda x: -x[1]["width"] * x[1]["height"])
+        )
+
+        # Place the items into stocks according to greedy algorithm.
+        for product_index in self.product_indices:
+            starting_stock_index = 0
+            product_width = self.products[product_index]["width"]
+            product_height = self.products[product_index]["height"]
+            product_demands = self.products[product_index]["demands"]
+
+            for _ in range(product_demands):
+                # Find the first largest stock where the item can be placed.
+                for stock_index in range(starting_stock_index, self.num_stocks):
+                    stock_index = self.stock_indices[stock_index]
+
+                    # Find the appropriate position in the stock to place the item.
+                    # If a appropriate position is found, move to the next item.
+                    if GreedySAPolicy.place_item(self.stocks[stock_index], product_width, product_height) is not None or \
+                       GreedySAPolicy.place_item(self.stocks[stock_index], product_height, product_width) is not None:
+                        break
+
+                    starting_stock_index += 1
+        
+        # Trying to find smaller stocks to place items.
+        GreedySAPolicy.tighten(self.stocks, self.stock_indices)
+        # Insert items to state matrix.
+        for i, stock in enumerate(self.stocks):
+            for x, y, w, h in stock["products"]:
+                self.state_matrix.append([w, h, i, x, y])
+        # Convert the state matrix to a NumPy array for better performance during copying.
+        self.state_matrix = np.array(self.state_matrix, dtype = np.int32)
+
+    # Find the appropriate position in the stock to place the item and return that position,
+    # if no such position is found, return None.
     @staticmethod
     def place_item(stock, product_width, product_height):
         occupied_cells = stock["occupied_cells"]
