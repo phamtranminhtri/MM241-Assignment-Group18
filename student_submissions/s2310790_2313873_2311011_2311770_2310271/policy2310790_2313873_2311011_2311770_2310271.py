@@ -294,3 +294,43 @@ class GreedySAPolicy(Policy):
             next_state[i][:2] = [hi, wi]
 
         return next_state
+
+    # Perform the simulated annealing algorithm on the state matrix and precompute all actions.
+    def simulated_annealing(self):
+        # Define hyperameters.
+        T = 1000
+        T_min = 1
+        eps = 0.95
+
+        current_state = self.state_matrix.copy()
+        min_area = self.energy(current_state)[3]
+
+        step = 0
+        while T > T_min:
+            # Calculate the energy of the current and next state.
+            current_state_energy, _, overlap_register, _ = self.energy(current_state, step)
+            next_state = self.choose_next_state(current_state, overlap_register)
+            next_state_energy, next_state_overlap, _, next_state_area = self.energy(next_state, step)
+
+            # Based on the energies, compute the probability of transitioning to the next state.
+            prob = self.transition_probability(current_state_energy, next_state_energy, T)
+            if prob > random.rand():
+                current_state = next_state
+
+                # If the next state has no overlapping items and uses less stock area than the current best state, 
+                # update the current best state to the next state.
+                if next_state_overlap == 0 and next_state_area < min_area:
+                    self.state_matrix = next_state
+                    min_area = next_state_area
+
+            # Reduce the temperature
+            T *= eps
+            step += 1
+                
+        # Compute all the nessessary actions
+        for state_vector in self.state_matrix:
+            self.actions.append({
+                "size": state_vector[:2],
+                "position": state_vector[3:],
+                "stock_idx": state_vector[2]
+            })
