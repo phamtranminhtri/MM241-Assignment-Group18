@@ -440,3 +440,322 @@ class GreedySAPolicy(Policy):
                 "position": state_vector[3:],
                 "stock_idx": state_vector[2]
             })
+
+# Reinforcement learning combined with greedy policy
+class RLPolicy(Policy):
+    """
+    This is a straightforward reinforcement policy for the 2D cutting stock problem, 
+    using a naive policy gradient algorithm with entropy regularization to achieve its objective. 
+
+    However, it is specifically designed for scenarios where the number of stocks does not exceed 100, 
+    the maximum number of product types is 24, and the maximum quantity per product type is 20. 
+    Outside these conditions, the policy defaults to a simple greedy approach.
+
+    A pre-trained model is provided in the same folder as this file. 
+    This policy utilizes the weights from the pre-trained model to compute actions, 
+    eliminating the need for further training.
+    """
+    def __init__(self, is_training = False):
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.step = 0
+        self.actions = []
+        self.reset_train_data()
+        self.model = CuttingStock2DModel(
+            num_stocks = 100, 
+            max_num_product_types = 24, 
+            max_products_per_type = 20
+        )
+        if self.device == "cuda":
+            self.model.cuda()
+        self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-3)
+        self.load()
+        self.is_training = is_training
+
+    def reset_train_data(self):
+        self.states = []
+        self.stock_indices = []
+        self.product_indices = []
+        self.rotations = []
+        self.rewards = []
+
+    def get_action(self, observation, info):
+        # This code runs at the start of each new game to initialize the state and precompute 
+        # all actions required for the episode, ensuring that no further calculations are needed 
+        # during the course of the game.
+        if self.step == len(self.actions):
+            # If we collect enough data, begin the training, and then collect the data again.
+            if self.is_training and len(self.rewards) >= 20:
+                self.train_batch()
+                self.reset_train_data()
+            torch.set_grad_enabled(False)
+            self.rewards.append([])
+            self.step = 0
+            self.actions = []
+
+            # Select the algorithm based on the environment.
+            algorithm = "rl"
+            if len(observation["stocks"]) != 100 or len(observation["products"]) > 24:
+                algorithm = "greedy"
+            else:
+                for product in observation["products"]:
+                    if product["quantity"] > 20:
+                        algorithm = "greedy"
+                        break
+
+            if algorithm == "rl":
+                state = torch.zeros(2168, device = self.device)
+                stock_used_list = [False] * 100
+
+            # stocks is a list of stock objects, where each element contains all the relevant information
+            # about a particular stock.
+            stocks = []
+            max_stock_size = 0
+            for i, stock in enumerate(observation["stocks"]):
+                stock_width, stock_height = self._get_stock_size_(stock)
+                if algorithm == "rl":
+                    state[i], state[i + 100] = stock_width, stock_height
+                stocks.append({
+                    "width": stock_width,
+                    "height": stock_height,
+                    "grid": [SortedList([0, stock_width]), SortedList([0, stock_height])],
+                    "occupied_cells": [[False]],
+                    "top_bound": 0,
+                    "right_bound": 0,
+                    "products": []
+                })
+                if stock_width > max_stock_size:
+                    max_stock_size = stock_width
+                if stock_height > max_stock_size:
+                    max_stock_size = stock_height
+
+            # stocks_sort contains the indices of stocks sorted in descending order based on their area.
+            stocks_sort = torch.arange(0, len(stocks))
+            stocks_sort, _ = zip(
+                *sorted(zip(stocks_sort, stocks), key = lambda x: -x[1]["width"] * x[1]["height"])
+            )
+
+            # num_products_left represents the number of products remaining to be cut in the current episode.
+            # products is a list of product objects, where each element contains all the relevant information
+            # about a particular product.
+            products = []
+            num_products_left = 0
+            for i, product in enumerate(observation["products"]):
+                if algorithm == "rl":
+                    state[i + 200], state[i + 224] = product["size"]
+                    state[1208 + i * 20 + product["quantity"]: 1228 + i * 20] = -100
+                num_products_left += product["quantity"]
+                products.append({
+                    "width": product["size"][0],
+                    "height": product["size"][1],
+                    "quantity": product["quantity"],
+                    "demands": product["quantity"]
+                })
+
+            if algorithm == "rl":
+                state[1208 + len(observation["products"]) * 20: 1688] = -100
+            
+            # products_sort contains the indices of products sorted in descending order based on their area.
+            products_sort = torch.arange(0, len(products))
+            products_sort, _ = zip(
+                *sorted(zip(products_sort, products), key = lambda x: -x[1]["width"] * x[1]["height"])
+            )
+        
+            if algorithm == "rl":
+                while num_products_left > 0:
+                    # Normalize state
+                    norm_state = state.clone()
+                    norm_state[:200] = (norm_state[:200] / max_stock_size * 100 - 75) / 25
+                    norm_state[200:248] = (norm_state[200:248] / max_stock_size * 100 - 25) / 25
+                    norm_state[248:1208] = norm_state[248:1208] / max_stock_size
+                    norm_state[1208:1688] /= 100
+                    self.states.append(norm_state)
+
+                    # Calculate the distributions.
+                    stock_prob, product_prob, rotate_prob = self.model(norm_state)
+
+                    # In training mode, we select the stock and product randomly based on their distributions.
+                    # In production mode, we choose the stock and product with the highest probability.
+                    if self.is_training:
+                        stock_idx = torch.multinomial(stock_prob, 1).item()
+                        product_idx = torch.multinomial(product_prob, 1).item()
+                        is_rotated = int(torch.bernoulli(rotate_prob).item())
+                    else:
+                        stock_idx = stock_prob.argmax().item()
+                        product_idx = product_prob.argmax().item()
+                        is_rotated = int(rotate_prob.item() > 0.5)
+
+                    rotate_product_idx = product_idx
+                    rotate_stock_idx = stock_idx
+                    rotate_is_rotated = is_rotated
+
+                    reward = 0
+                    i = 0
+                    # If the selected product index is out of range or the product type has no remaining products, 
+                    # the system will choose another product until a valid one is found. Each failure will reduce the 
+                    # reward by 1.
+                    while rotate_product_idx >= len(products) or \
+                            products[rotate_product_idx]["quantity"] == 0:
+                        reward -= 1
+                        rotate_product_idx = products_sort[i].item()
+                        i += 1
+                        
+                    product = products[rotate_product_idx]
+                    # Select best position to place the product inside the stock and the rotation status.
+                    if is_rotated:
+                        position = GreedySAPolicy.place_item(stocks[rotate_stock_idx], product["height"], product["width"])
+                    else:
+                        position = GreedySAPolicy.place_item(stocks[rotate_stock_idx], product["width"], product["height"])
+
+                    i = 0
+                    # If the stock has no available space for the product, move on to the next stock and reduce
+                    # the reward by 1.
+                    while position is None:
+                        reward -= 1
+                        rotate_is_rotated = 1 - is_rotated
+                        if rotate_is_rotated:
+                            position = GreedySAPolicy.place_item(stocks[rotate_stock_idx], product["height"], product["width"])
+                        else:
+                            position = GreedySAPolicy.place_item(stocks[rotate_stock_idx], product["width"], product["height"])
+                        if position is not None:
+                            break
+                        reward -= 1
+                        rotate_is_rotated = is_rotated
+                        rotate_stock_idx = stocks_sort[i]
+                        if rotate_is_rotated:
+                            position = GreedySAPolicy.place_item(stocks[rotate_stock_idx], product["height"], product["width"])
+                        else:
+                            position = GreedySAPolicy.place_item(stocks[rotate_stock_idx], product["width"], product["height"])
+                        i += 1
+
+                    # Once an appropriate product is placed in the right stock at the correct position, 
+                    # we decrease the number of products left by 1 and update the state vector.
+                    num_products_left -= 1
+                    offset = product["demands"] - product["quantity"]
+                    state[248 + 40 * rotate_product_idx + 2 * offset] = position[0]
+                    state[249 + 40 * rotate_product_idx + 2 * offset] = position[1]
+                    state[1208 + rotate_product_idx * 20 + offset] = rotate_stock_idx + 1
+                    state[1688 + rotate_product_idx * 20 + offset] = rotate_is_rotated
+
+                    # If the selected stock is a new stock, decrease the reward by a factor of its area.
+                    # Otherwise, if the chosen stock has already been cut, increase the reward by 1.
+                    if not stock_used_list[rotate_stock_idx]:
+                        reward -= (state[rotate_stock_idx] * state[rotate_stock_idx + 100] / 10000).item()
+                        stock_used_list[rotate_stock_idx] = True
+                    else:
+                        reward += 1
+
+                    # Save the state, the chosen action and reward at each step of an episode for later training.
+                    self.stock_indices.append(stock_idx)
+                    self.product_indices.append(product_idx)
+                    self.rotations.append(is_rotated)
+                    self.rewards[-1].append(reward)
+                    product["quantity"] -= 1
+            # Greedy algorithm.
+            else:
+                # Place the items into stocks according to greedy algorithm.
+                for idx in products_sort:
+                    product = products[idx.item()]
+                    start_idx = 0
+                    for _ in range(product["demands"]):
+                        # Find the first largest stock where the item can be placed.
+                        for i in range(start_idx, len(stocks)):
+                            # Find the appropriate position in the stock to place the item.
+                            # If a appropriate position is found, move to the next item.
+                            if GreedySAPolicy.place_item(stocks[stocks_sort[i]], product["width"], product["height"]) or \
+                               GreedySAPolicy.place_item(stocks[stocks_sort[i]], product["height"], product["width"]):
+                                break
+                            start_idx += 1
+
+            # Find more optimal solution by tightening.
+            GreedySAPolicy.tighten(stocks, stocks_sort)
+
+            # Generate all the required actions.
+            for i, stock in enumerate(stocks):
+                for x, y, w, h in stock["products"]:
+                    self.actions.append({
+                        "stock_idx": i,
+                        "size": (w, h),
+                        "position": (x, y)
+                    })
+
+        # Choose next precompute action.
+        action = self.actions[self.step]
+        self.step += 1
+        return action
+
+    def train_batch(self):
+        torch.set_grad_enabled(True)
+
+        # Convert all the states to tensors
+        states = torch.stack(self.states, 0)
+        stock_indices = torch.tensor(self.stock_indices, device = self.device)
+        product_indices = torch.tensor(self.product_indices, device = self.device)
+        rotations = torch.tensor(self.rotations, device = self.device)
+
+        rewards = []
+        for episode_rewards in self.rewards:
+            reward = sum(episode_rewards)
+            rewards.extend([reward] * len(episode_rewards))
+
+        rewards = torch.tensor(rewards, device = self.device)
+        stock_probs, product_probs, rotate_probs = self.model(states)
+        rotate_probs = torch.cat((1 - rotate_probs, rotate_probs), -1)
+
+        # Calculate the log probabilies.
+        stock_log_probs = torch.log(stock_probs[torch.arange(len(stock_indices)), stock_indices])
+        product_log_probs = torch.log(product_probs[torch.arange(len(product_indices)), product_indices])
+        rotate_log_probs = torch.log(rotate_probs[torch.arange(len(rotations)), rotations])
+
+        # Compute the entropy loss for regularization to prevent getting stuck in a local optimum.
+        stock_entropy = (-stock_probs * torch.log(stock_probs)).mean() * 4
+        product_entropy = (-product_probs * torch.log(product_probs)).mean() * 1.6
+        rotate_entropy = (-rotate_probs * torch.log(rotate_probs)).mean() * 0.7
+        entropy_loss = -stock_entropy + product_entropy + rotate_entropy
+
+        # Calculate the loss according to policy gradient theorem with entropy.
+        loss = -((stock_log_probs + product_log_probs + rotate_log_probs) * rewards).sum() * 1e-6 + entropy_loss
+        print("Loss: ", loss.item())
+        # Update parameters
+        loss.backward()
+
+        self.optimizer.step()
+        self.optimizer.zero_grad()
+
+        self.save()
+        torch.cuda.empty_cache()
+
+    # Save model
+    def save(self, file_name = "cutting_stock_2d_model.ckpt"):
+        abs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name)
+        torch.save({
+            "model": self.model.state_dict(),
+            "optimizer": self.optimizer.state_dict()
+        }, abs_path)
+    
+    # Load model
+    def load(self, file_name = "cutting_stock_2d_model.ckpt"):
+        abs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name)
+        if os.path.exists(abs_path):
+            try:
+                saved_model = torch.load(abs_path, weights_only = True, map_location = self.device)
+                if (type(saved_model) == dict):
+                    self.model.load_state_dict(saved_model["model"])
+                    self.optimizer.load_state_dict(saved_model["optimizer"])
+                else:
+                    self.model.load_state_dict(saved_model)
+            except:
+                print("Failed to load the model.")
+
+class Policy2310790_2313873_2311011_2311770_2310271(Policy):
+    """
+    This policy combines a greedy approach with simulated annealing and reinforcement learning.
+
+    - `policy_id = 1` corresponds to the greedy approach with simulated annealing.
+    - `policy_id = 2` corresponds to the reinforcement learning policy.
+    """
+    def __init__(self, policy_id = 1, is_training = False):
+        assert policy_id in [1, 2], "Policy ID must be 1 or 2"
+        self.policy = GreedySAPolicy() if policy_id == 1 else RLPolicy(is_training)
+
+    def get_action(self, observation, info):
+        return self.policy.get_action(observation, info)
