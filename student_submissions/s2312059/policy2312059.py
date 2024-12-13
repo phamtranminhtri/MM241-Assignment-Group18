@@ -19,7 +19,11 @@ class Policy2312059(Policy):
             self.actions = []
             pass
         elif policy_id == 2:
+            # Guillotine Cutting với FFDH
             self.policy_id = policy_id
+            self.stocks_total_area = None
+            self.stocks_used_area = None
+            self.stocks_remaining_space = None
             pass
 
     def get_action(self, observation, info):
@@ -44,12 +48,7 @@ class Policy2312059(Policy):
         #Tính self.epsilon và avg_stock_width
         if not self.avg_stock_width:
             self.avg_stock_width = sum(self._get_stock_size_(s)[0] for s in stocks) / len(stocks)
-            self.max_stock_width = max(self._get_stock_size_(s)[0] for s in stocks)
-            self.min_stock_width = min(self._get_stock_size_(s)[0] for s in stocks)
-
             self.epsilon = (
-                (self.max_stock_width - self.min_stock_width) / self.avg_stock_width
-            ) * (
                 sum(p["size"][0] * p["size"][1] * p["quantity"] for p in products) / 
                 sum(self._get_stock_size_(s)[0] * self._get_stock_size_(s)[1] for s in stocks)
             )
@@ -160,10 +159,6 @@ class Policy2312059(Policy):
             for stock_idx, stock in enumerate(stocks):
                 stock_w, stock_h = self._get_stock_size_(stock)
 
-                # Bỏ qua kho nếu kích thước không phù hợp
-                if prod_w > stock_w or prod_h > stock_h:
-                    continue
-
                 # Tìm vị trí phù hợp đầu tiên trong kho
                 position = self.find_position_min_waste(stock, prod["size"])
                 if position:
@@ -198,8 +193,12 @@ class Policy2312059(Policy):
         prod_w, prod_h = prod_size
         
         # Nếu stock ko đủ chứa prod
-        if prod_w > stock_w or prod_h > stock_h:
+        if prod_w*prod_h > stock_w*stock_h:
             return None
+        
+        # Xoay product
+        if stock_h < prod_h or stock_w < prod_w:
+            prod_w, prod_h = prod_h, prod_w
 
         # Duyệt qua các vị trí khả thi và tính vị trí mà ít lãng phí diện tích nhất
         best_position = None
@@ -232,3 +231,5 @@ class Policy2312059(Policy):
             if (np.any(stock >= 0)): total_area += stock_w * stock_h
             used_area += np.sum(stock >= 0)  # Số lượng ô đã sử dụng
         return (used_area, total_area, used_stocks) 
+    
+# functions for POLICY 2:
