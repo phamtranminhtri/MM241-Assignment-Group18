@@ -89,10 +89,18 @@ class Policy2353101(Policy):
                         best_ratio = ratio
                         placements.append((best_fit_array, ratio))
                 self.best_placement = max(placements, key=lambda x: x[1])[0]
+            
+            
+
             if self.current_step < len(self.best_placement):
                 best_fit = self.best_placement[self.current_step]
                 self.current_step += 1
+
+                # Reset for next episode
+                if sum([prod["quantity"] for prod in observation["products"]]) == 1:
+                    self.resetAll()
                 return {"stock_idx": best_fit["index"], "size": best_fit["size"], "position": (best_fit["x"], best_fit["y"])}
+            
         elif self.id == 2:
             if self.first_action:
                 self.initialize(observation)
@@ -138,12 +146,12 @@ class Policy2353101(Policy):
                         
                     if best_fit is None:
                         continue
-
+                    
+                    # Reset for next episode
                     if sum([prod["quantity"] for prod in observation["products"]]) == 1:
                         self.resetAll()
 
                     return {"stock_idx": best_fit["index"], "size": best_fit["size"], "position": (best_fit["x"], best_fit["y"])}
-    # First algorithm Best fit decreasing (BFD)
 
     def resetAll(self):
         self.best_placement = []
