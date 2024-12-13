@@ -2,7 +2,7 @@ from policy import Policy
 from scipy.optimize import linprog
 from itertools import product
 
-class Policy2310270(Policy):
+class Policy2310270_2310779_2310348_2314057_2310655(Policy):
     def __init__(self, policy_id=1):
         assert policy_id in [1, 2], "Policy ID must be 1 or 2"
         self.policy_id = policy_id
