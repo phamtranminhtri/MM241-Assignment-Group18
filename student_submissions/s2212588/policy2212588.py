@@ -1,7 +1,7 @@
 import random
 from abc import abstractmethod
 from policy import Policy
-import numpy as np
+import numpy as np 
 
 class Policy2212588(Policy):
     def __init__(self, policy_id=1):
