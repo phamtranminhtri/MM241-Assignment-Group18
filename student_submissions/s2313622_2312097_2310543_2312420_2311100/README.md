@@ -1,4 +1,9 @@
-# Instructions for the RL policy
+- To run the trained RL PPO policy: set `policy_id` to 1
+- To run the hybrid policy (heuristic + RL): set `policy_id` to 2
+- To run the heuristic policy: set `policy_id` to 3
+
+
+## Instructions for the RL PPO policy (policy_id=1)
 
 **ACKNOWLEDGEMENT**: This code is based on the PPO implementation from the following source: https://github.com/ericyangyu/PPO-for-Beginners
 
@@ -33,4 +38,18 @@ python ppo_optimized.py
 python ppo_optimized.py --actor_model ppo_actor.pth --critic_model ppo_critic.pth
 ```
 
-- To run the policy for testing: Go back to the original `main.py` file in the parent directory (run `cd ../..` then simply `python main.py`) and call the policy with policy_id = 2. Remember to use the correct configuration of `gym_cutting_stock` environment while running.
+- To run the policy for testing: Go back to the original `main.py` file in the parent directory (run `cd ../..` then simply `python main.py`) and call the policy with policy_id = 1. Remember to use the correct configuration of `gym_cutting_stock` environment while running.
+
+## Instructions for the Heuristic_RL Policy
+
+The policy does not require prior training. During testing, it trains on a single specific episode provided by the user and then proceeds to testing. This on-the-fly training allows the policy to quickly adapt to the given environment. Training with the copied environment, optimized using the heuristic method, takes less than 10 seconds.
+
+To train and test the policy, go back to the original main.py file in the parent directory and call the policy with policy_id = 2.
+
+**NOTE**: The user must run an episode starting with info["filled_ratio"] == 0. This ensures that the policy can train properly and reset necessary information.
+
+#### Instructions for the Heuristic Policy
+
+To test the policy, go back to the original main.py file in the parent directory and call the policy with policy_id = 3.
+
+**NOTE**: The user must run an episode starting with info["filled_ratio"] == 0. This ensures that the policy resets necessary information.

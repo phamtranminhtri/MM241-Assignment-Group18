@@ -61,7 +61,7 @@ if __name__ == "__main__":
     observation, info = env.reset(seed=42)
 
     # Test RandomPolicy
-    policy = Policy2313622_2312097_2310543_2312420_2311100(policy_id=1)
+    policy = Policy2313622_2312097_2310543_2312420_2311100(policy_id=3)
     ep = 0
     while ep < NUM_EPISODES:
         action = policy.get_action(observation, info)
