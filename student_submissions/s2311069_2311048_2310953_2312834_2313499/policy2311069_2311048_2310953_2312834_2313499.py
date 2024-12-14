@@ -24,11 +24,12 @@ class bestfit(Policy):
 
     def get_action(self, observation, info):
         if info["filled_ratio"] == 0.0:
-            prod_average_area = sum(product["size"][0]*product["size"][1]*product["quantity"] for product in observation["products"]) / len(observation["products"])
+            prod_average_area = sum(product["size"][0]*product["size"][1] for product in observation["products"]) / len(observation["products"])
             prod_average_quantity = sum(product["quantity"] for product in observation["products"]) / len(observation["products"])
             self.sorted_stocks = sorted(enumerate(observation["stocks"]), key=lambda x: self._get_stock_size_(x[1])[0] * self._get_stock_size_(x[1])[1], reverse=True)
             self.sorted_prods = sorted(observation["products"], key=lambda x: x["size"][0] * x["size"][1], reverse=True)
-            if prod_average_area * prod_average_quantity < self._get_stock_size_(self.sorted_stocks[99][1])[0] * self._get_stock_size_(self.sorted_stocks[99][1])[1]:
+            stock_average_area = sum(self._get_stock_size_(stock)[0] * self._get_stock_size_(stock)[1] for _, stock in self.sorted_stocks) / len(self.sorted_stocks)
+            if prod_average_area * prod_average_quantity < stock_average_area:
                 self.sorted_stocks = self.sorted_stocks[::-1]
             self.stock_area_used = np.zeros(len(self.sorted_stocks))
             self.can_place_prod = np.ones((len(self.sorted_stocks), len(self.sorted_prods)), dtype=bool)
@@ -143,11 +144,12 @@ class column(Policy):
         if(self.selected_pattern is not None):
             return self.return_action()
         if info["filled_ratio"] == 0.0:
-            prod_average_area = sum(product["size"][0]*product["size"][1]*product["quantity"] for product in observation["products"]) / len(observation["products"])
+            prod_average_area = sum(product["size"][0]*product["size"][1] for product in observation["products"]) / len(observation["products"])
             prod_average_quantity = sum(product["quantity"] for product in observation["products"]) / len(observation["products"])
             self.sorted_stocks = sorted(enumerate(observation["stocks"]), key=lambda x: self._get_stock_size_(x[1])[0] * self._get_stock_size_(x[1])[1], reverse=True)
             self.sorted_prods = sorted(observation["products"], key=lambda x: x["size"][0] * x["size"][1], reverse=True)
-            if prod_average_area * prod_average_quantity < self._get_stock_size_(self.sorted_stocks[99][1])[0] * self._get_stock_size_(self.sorted_stocks[99][1])[1]:
+            stock_average_area = sum(self._get_stock_size_(stock)[0] * self._get_stock_size_(stock)[1] for _, stock in self.sorted_stocks) / len(self.sorted_stocks)
+            if prod_average_area * prod_average_quantity < stock_average_area:
                 self.sorted_stocks = self.sorted_stocks[::-1]
             self.stock_area_used = np.zeros(len(self.sorted_stocks))
             self.num_products = len(self.sorted_prods)   
