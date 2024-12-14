@@ -2,7 +2,7 @@ from policy import Policy
 import numpy as np
 
 
-class Policy2210xxx(Policy):
+class Policy2352600_2352726_2352621_2352972_2352522(Policy):
     def __init__(self, policy_id=1):
         """
         Initialize the policy with the specified heuristic method.
