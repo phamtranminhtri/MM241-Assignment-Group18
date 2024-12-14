@@ -6,16 +6,16 @@ class Policy2353259_2353235_2252723_2352689_2352608(Policy):
         assert policy_id in [1, 2], "Policy ID must be 1 or 2"
         
         # Thêm các tham số từ Policy2210xxx
-        self.rotation_enabled = True
-        self.score_edge = 15
-        self.score_gap = 8
-        self.score_corner = 20
+        
         self.policy_id = policy_id
         
         if policy_id == 1:
             pass
         elif policy_id == 2:
-            pass
+            self.rotation_enabled = True
+            self.score_edge = 15
+            self.score_gap = 8
+            self.score_corner = 20
     
     def get_action(self, observation, info):
         if self.policy_id == 1:
