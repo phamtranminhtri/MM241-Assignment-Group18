@@ -1,9 +1,9 @@
 from policy import Policy
 import numpy as np
-class Policy2210xxx(Policy):
+class Policy2311518_2312603_2310198_2312186_2312550(Policy):
     def __init__(self, policy_id=1):
         """
-        Constructor for Policy2210xxx
+        Constructor for Policy2311518_2312603_2310198_2312186_2312550
         :param policy_id: ID of the policy (1: First Fit Decreasing, 2: Best Fit Decreasing)
         """
         assert policy_id in [1, 2], "Policy ID must be 1 or 2"
