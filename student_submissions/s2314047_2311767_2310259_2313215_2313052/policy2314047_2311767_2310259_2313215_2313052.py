@@ -9,20 +9,39 @@ class Policy2314047_2311767_2310259_2313215_2313052(Policy):
         self.policy_id = policy_id
         # Student code here
         if policy_id == 1:
-            self.sorted_stock = None
-            self.sorted_prod = None
-            self.cur_stock_idx = -1
-            self.cur_prod_idx = -1
-        elif policy_id == 2:
             self.cur_stock_idx = -1
             self.solution = []
             self.loop = 250
             self.stop_condition = 0.05
             self.num_of_quantity = 0
+        elif policy_id == 2:
+            self.sorted_stock = None
+            self.sorted_prod = None
+            self.cur_stock_idx = -1
+            self.cur_prod_idx = -1
 
     def get_action(self, observation, info):
         # Student code here
         if self.policy_id == 1:
+            if info["filled_ratio"] == 0.0:
+                self.cur_stock_idx = -1
+                self.solution = []
+
+            sorted_stock = sorted(
+                enumerate(observation["stocks"]),
+                key=lambda s: self._get_stock_size_(s[1])[0] * self._get_stock_size_(s[1])[1],
+                reverse=True,
+            )
+
+            if self.solution:
+                return self.solution.pop(0)
+            else:
+                self.cur_stock_idx += 1
+                idx, stock = sorted_stock[self.cur_stock_idx]
+                self.solution = self.find_solution(stock.copy(), idx, observation["products"])
+                return self.solution.pop(0)
+                
+        elif self.policy_id == 2:
             if info["filled_ratio"] == 0.0:
                 self.cur_stock_idx = -1
                 self.cur_prod_idx = -1
@@ -91,24 +110,6 @@ class Policy2314047_2311767_2310259_2313215_2313052(Policy):
             self.cur_stock_idx = -1
             self.cur_prod_idx = -1
             return {"stock_idx": -1, "size": [0, 0], "position": (0, 0)}
-        elif self.policy_id == 2:
-            if info["filled_ratio"] == 0.0:
-                self.cur_stock_idx = -1
-                self.solution = []
-
-            sorted_stock = sorted(
-                enumerate(observation["stocks"]),
-                key=lambda s: self._get_stock_size_(s[1])[0] * self._get_stock_size_(s[1])[1],
-                reverse=True,
-            )
-
-            if self.solution:
-                return self.solution.pop(0)
-            else:
-                self.cur_stock_idx += 1
-                idx, stock = sorted_stock[self.cur_stock_idx]
-                self.solution = self.find_solution(stock.copy(), idx, observation["products"])
-                return self.solution.pop(0)
     
     def calculate_trim_loss(self, c_stock):
         total_area = np.sum(c_stock >= -1)
