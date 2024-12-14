@@ -1,8 +1,5 @@
 import random
-from abc import abstractmethod
 from policy import Policy
-
-import numpy as np
 
 class Policy2210547_2212643_2212069_2213293_2210644(Policy):
     def __init__(self,policy_id, population_size=50, generations=100, mutation_rate=0.01, epsilon=0.1):
