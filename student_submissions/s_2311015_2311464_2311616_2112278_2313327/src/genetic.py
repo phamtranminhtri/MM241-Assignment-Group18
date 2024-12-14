@@ -56,7 +56,9 @@ class GeneticPolicy(Policy):
 
         used_area = np.sum(stock >= 0)
 
-        fitness_score = space_utilization + distance_to_target + used_area ** 2
+        prod_area = prod_size[0] * prod_size[1]
+
+        fitness_score = space_utilization * 100 + distance_to_target + used_area ** 1.5 + prod_area ** 2
 
         if not self._can_place_(stock, (pos_x, pos_y), prod_size):
             fitness_score -= 1000

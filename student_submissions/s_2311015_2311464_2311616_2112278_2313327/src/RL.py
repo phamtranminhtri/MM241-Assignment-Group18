@@ -182,7 +182,7 @@ class ActorCriticPolicy(Policy, nn.Module):
 
         # Combine scores with carefully tuned weights
         total_score = (
-            0.5 * stock_area_score +      # Prioritize larger, less utilized stocks
+            stock_area_score +      # Prioritize larger, less utilized stocks
             20 * fulfillment_score +     # Prefer actions that can fully utilize space
             10 * position_efficiency +   # Prefer centered placements
             10 * historical_reward +     # Consider past performance
@@ -251,32 +251,19 @@ class ActorCriticPolicy(Policy, nn.Module):
         return remaining_space / 4  # Normalize
 
     def _calculate_edge_proximity(self, stock, position, size):
-        """
-        Calculate proximity to stock edges with a preference for positions that 
-        fit well against the edges.
-        """
         x, y = position
-        stock_w, stock_h = self._get_stock_size_(stock)
         prod_w, prod_h = size
+        stock_w, stock_h = self._get_stock_size_(stock)
 
-        # Calculate leftover space near edges
-        left_space = x
-        right_space = stock_w - (x + prod_w)
-        top_space = y
-        bottom_space = stock_h - (y + prod_h)
+        # Calculate distances to edges
+        left_distance = x
+        right_distance = stock_w - (x + prod_w)
+        top_distance = y
+        bottom_distance = stock_h - (y + prod_h)
 
-        # Penalize positions where the product doesn't align well with edges
-        horizontal_fit_score = 1 / (1 + abs(left_space - right_space)) if left_space >= 0 and right_space >= 0 else 0
-        vertical_fit_score = 1 / (1 + abs(top_space - bottom_space)) if top_space >= 0 and bottom_space >= 0 else 0
-
-        # Total score combines horizontal and vertical fit scores
-        edge_score = horizontal_fit_score + vertical_fit_score
-
-        # Ensure the product fits within the stock dimensions
-        if left_space < 0 or right_space < 0 or top_space < 0 or bottom_space < 0:
-            edge_score = -float('inf')  # Invalid position
-
-        return edge_score
+        # Prefer placement close to any edge
+        edge_proximity_score = min(left_distance, right_distance, top_distance, bottom_distance)
+        return edge_proximity_score
 
     def update(self, transitions, orig_state):
         states, actions, rewards, next_states, dones = transitions
