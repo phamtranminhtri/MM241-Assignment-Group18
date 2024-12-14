@@ -432,7 +432,7 @@ class Policy2313622_2312097_2310543_2312420_2311100(Policy):
                     list_trim_loss[idx_model] = env_info["trim_loss"].copy()
                 
                 old_mean = sum(list_trim_loss) / len(list_trim_loss)
-                good_ans = [trim_loss for trim_loss in list_trim_loss if trim_loss < old_mean]
+                good_ans = [trim_loss for trim_loss in list_trim_loss if trim_loss <= old_mean]
                 new_mean = sum(good_ans) / len(good_ans)
                 
                 if (new_mean > _origin_mean):
