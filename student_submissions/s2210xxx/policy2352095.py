@@ -3,14 +3,17 @@ from policy import Policy
 class Policy2352095(Policy):
     def __init__(self, policy_id=1):
         assert policy_id in [1, 2], "Policy ID must be 1 or 2"
-        self.policy_id = policy_id
+        if policy_id == 1:
+            self.policy_id = 1
+        elif policy_id == 2:
+            self.policy_id = 2
         
     def get_action(self, observation, info):
         if self.policy_id == 1:
             return self._greedy_action(observation, info)
         elif self.policy_id == 2:
             return self._ffd_action(observation, info)
-    #Tran Manh Thang(2353124) implemented Greedy Algorithm
+    #Tran Manh Thang(2353124) implemented Greedy
     def _greedy_action(self, observation, info):
         list_prods = sorted(observation["products"], key=lambda p: (p["size"][0] * p["size"][1], p["quantity"]), reverse=True)
         stocks_with_sizes = [(i, stock, *self._get_stock_size_(stock), 0) for i, stock in enumerate(observation["stocks"])]
