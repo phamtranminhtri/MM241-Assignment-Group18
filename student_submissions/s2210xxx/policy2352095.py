@@ -10,7 +10,7 @@ class Policy2352095(Policy):
             return self._greedy_action(observation, info)
         elif self.policy_id == 2:
             return self._ffd_action(observation, info)
-    #Tran Manh Thang implemented Greedy Algorithm
+    #Tran Manh Thang(2353124) implemented Greedy Algorithm
     def _greedy_action(self, observation, info):
         list_prods = sorted(observation["products"], key=lambda p: (p["size"][0] * p["size"][1], p["quantity"]), reverse=True)
         stocks_with_sizes = [(i, stock, *self._get_stock_size_(stock), 0) for i, stock in enumerate(observation["stocks"])]
@@ -50,7 +50,7 @@ class Policy2352095(Policy):
                             stocks_with_sizes[i] = (idx, stock, w, h, max_utilization)
                             break
                     return {"stock_idx": best_stock_idx, "size": best_size, "position": best_position}
-    #Hoang Kim Cuong implemented First Fit Decreasing
+    #Hoang Kim Cuong(2352145) implemented First Fit Decreasing
     def _ffd_action(self, observation, info):
         list_prods = sorted(observation["products"], key=lambda p: (p["size"][0] * p["size"][1]), reverse=True)
         stocks_with_sizes = [(i, stock, *self._get_stock_size_(stock)) for i, stock in enumerate(observation["stocks"])]
