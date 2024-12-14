@@ -55,7 +55,7 @@ class Policy2311643_2313632_2313138_2311384_2313518(Policy):
                     for j in index_sorted_stock:
                         stock = observation["stocks"][j]
                         stock_w, stock_h = self._get_stock_size_(stock)
-                        if(prod_h>stock_w or prod_w > stock_w):
+                        if(prod_h>stock_h or prod_w > stock_w):
                             continue
                         for k in range (len(self.level[j])):
                             # kiểm tra product có thể đặt vào vị trí nào ở level thứ count nào không
@@ -115,7 +115,7 @@ class Policy2311643_2313632_2313138_2311384_2313518(Policy):
                     for j in index_sorted_stock:
                         stock = observation["stocks"][j]
                         stock_w, stock_h = self._get_stock_size_(stock) 
-                        if(prod_h>stock_w or prod_w > stock_w):
+                        if(prod_h>stock_h or prod_w > stock_w):
                             continue
                         # case chiều rộng không đủ thì mở ra level mới
                         if self.curx[j]+prod_w > stock_w:
