@@ -19,11 +19,9 @@ class Policy2312059(Policy):
             self.actions = []
             pass
         elif policy_id == 2:
-            # Guillotine Cutting với FFDH
+            # Guillotine Cutting với First Fit Decreasing Height Policy
             self.policy_id = policy_id
-            self.stocks_total_area = None
-            self.stocks_used_area = None
-            self.stocks_remaining_space = None
+            self.stocks_available_regions = None
             pass
 
     def get_action(self, observation, info):
@@ -31,6 +29,10 @@ class Policy2312059(Policy):
         #POLICY 1:
         if (self.policy_id == 1): 
             action = self.policy_1_action(observation, info)
+            return action
+        #POLICY 2:
+        if (self.policy_id == 2): 
+            action = self.policy_2_action(observation, info)
             return action
         pass
 
@@ -40,7 +42,8 @@ class Policy2312059(Policy):
 # functions for POLICY 1:
     def policy_1_action(self, observation, info):
         """
-        get_action() function của policy_1 (AFPTAS)
+        get_action() function của policy_1:
+        Asymptotic Fully Polynomial Approximation Scheme (AFPTAS)
         """
         products = observation["products"]
         stocks = observation["stocks"]
@@ -54,8 +57,9 @@ class Policy2312059(Policy):
             )
             # print(self.epsilon)
 
-        if len(products) < 2:
-            return self.best_fit_packing(products, stocks)
+        if len(products) < 2 and np.sum([p["quantity"] > 0 for p in products]) < 10:
+            action = self.best_fit_packing(products, stocks)
+            if action: return action
 
         # Phân loại sản phẩm thành wide, narrow dựa trên epsilon và avg_stock_width
         wide_prods, narrow_prods = self.classify_items(products, self.avg_stock_width)
@@ -192,13 +196,13 @@ class Policy2312059(Policy):
         stock_w, stock_h = self._get_stock_size_(stock)
         prod_w, prod_h = prod_size
         
-        # Nếu stock ko đủ chứa prod
-        if prod_w*prod_h > stock_w*stock_h:
-            return None
-        
-        # Xoay product
-        if stock_h < prod_h or stock_w < prod_w:
-            prod_w, prod_h = prod_h, prod_w
+        # Kiểm tra nếu vùng không đủ lớn
+        if stock_w < prod_w or stock_h < prod_h:
+            # Thử xoay item
+            if stock_w >= prod_h and stock_h >= prod_w:
+                prod_w, prod_h = prod_h, prod_w
+            else:
+                return None
 
         # Duyệt qua các vị trí khả thi và tính vị trí mà ít lãng phí diện tích nhất
         best_position = None
@@ -233,3 +237,92 @@ class Policy2312059(Policy):
         return (used_area, total_area, used_stocks) 
     
 # functions for POLICY 2:
+    def policy_2_action(self, observation, info):
+        """
+        get_action() function của policy_1 
+        (Guillotine Cutting với FFDH Policy)
+        """
+        products = observation["products"]
+        stocks = observation["stocks"]
+
+        # Khởi t
+        # Tạo stocks_available_regions:
+        if not self.stocks_available_regions:
+            self.stocks_available_regions = [[{"size" : self._get_stock_size_(stock), 
+                                            "position" : (0, 0)}] for stock in stocks]
+        action = self.first_fit_decreasing_height(stocks, products)
+        # print(action)
+        if not action:
+            return {"stock_idx": 0, "size": (0, 0), "position": (0, 0)}
+        return action
+    
+    def first_fit_decreasing_height(self, stocks, items):
+        """
+        Cắt các stock theo chiến lược First Fit Decreasing Height.
+        """
+        # Sắp xếp sản phẩm theo diện tích giảm dần
+        sorted_items = sorted(items, key=lambda p: p["size"][0] * p["size"][1], reverse=True)
+        for i, item in enumerate(sorted_items):
+            if item["quantity"] <= 0:
+                continue
+            item_w, item_h = item["size"]
+            for stock_idx, stock in enumerate(stocks):
+                stock_w, stock_h = self._get_stock_size_(stock)
+                # Nếu diện tích của stock < item 
+                if item_w*item_h > stock_w*stock_h: continue
+                # Nếu diện tích phần trống < item
+                remaining_area = np.sum(stock == -1) 
+                if remaining_area < item_h * item_w: continue
+                action = self.guillotine_cut(stock, stock_idx, item, i)
+                if not action: continue
+                return action
+        pass
+
+    def guillotine_cut(self, stock, stock_idx, item, item_idx):
+        """
+        Thực hiện Guillotine Cut trên stock.
+        """
+        for region_idx, region in enumerate(self.stocks_available_regions[stock_idx]):
+            item_w, item_h = item["size"]
+            stock_w, stock_h = self._get_stock_size_(stock)
+            region_w, region_h = region["size"]
+            
+            # Kiểm tra nếu vùng không đủ lớn
+            if region_w < item_w or region_h < item_h:
+                # Thử xoay item
+                if region_w >= item_h and region_h >= item_w:
+                    item_w, item_h = item_h, item_w
+                else:
+                    continue
+            # Kiểm tra xem stock có đặt được item ko
+            if not self._can_place_(stock, region["position"], item["size"]):
+                continue
+
+            # Cập nhật vùng khả dụng
+            self.stocks_available_regions[stock_idx].pop(region_idx)
+            if region_w > item_w:
+                self.stocks_available_regions[stock_idx].append({
+                    "size": (region_w - item_w, item_h),
+                    "position": (region["position"][0] + item_w, region["position"][1])
+                })
+            if region_h > item_h:
+                self.stocks_available_regions[stock_idx].append({
+                    "size": (region_w, region_h - item_h),
+                    "position": (region["position"][0], region["position"][1] + item_h)
+                })
+            
+            # Sắp xếp lại vùng khả dụng theo diện tích
+            self.stocks_available_regions[stock_idx].sort(
+                key=lambda p: p["size"][0] * p["size"][1], 
+            )
+
+            # Trả về action
+            return {
+                "stock_idx": stock_idx,
+                "size": (item_w, item_h),
+                "position": region["position"],
+            }
+
+        # Không tìm thấy position phù hợp
+        return None
+
