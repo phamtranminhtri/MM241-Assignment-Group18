@@ -1,9 +1,7 @@
 import gym_cutting_stock
 import gymnasium as gym
 from policy import GreedyPolicy, RandomPolicy
-from student_submissions.s2313622_2312097_2310543_2312420_2311100.policy2313622_2312097_2310543_2312420_2311100 import Policy2313622_2312097_2310543_2312420_2311100
-# from student_submissions.s2313622_2312097_2310543_2312420_2311100.policy2210xxx import Policy2210xxx
-
+from student_submissions.s2210xxx.policy2210xxx import Policy2210xxx
 
 # Create the environment
 env = gym.make(
@@ -13,63 +11,48 @@ env = gym.make(
 NUM_EPISODES = 100
 
 if __name__ == "__main__":
-    # # Reset the environment
-    # observation, info = env.reset(seed=42)
+    # Reset the environment
+    observation, info = env.reset(seed=42)
 
-    # # Test GreedyPolicy
-    # gd_policy = GreedyPolicy()
-    # ep = 0
-    # while ep < NUM_EPISODES:
-    #     action = gd_policy.get_action(observation, info)
-    #     observation, reward, terminated, truncated, info = env.step(action)
+    # Test GreedyPolicy
+    gd_policy = GreedyPolicy()
+    ep = 0
+    while ep < NUM_EPISODES:
+        action = gd_policy.get_action(observation, info)
+        observation, reward, terminated, truncated, info = env.step(action)
 
-    #     if terminated or truncated:
-    #         print(info)
-    #         observation, info = env.reset(seed=ep)
-    #         ep += 1
+        if terminated or truncated:
+            print(info)
+            observation, info = env.reset(seed=ep)
+            ep += 1
 
-    # # Reset the environment
-    # observation, info = env.reset(seed=42)
+    # Reset the environment
+    observation, info = env.reset(seed=42)
 
-    # # Test RandomPolicy
-    # rd_policy = RandomPolicy()
-    # ep = 0
-    # while ep < NUM_EPISODES:
-    #     action = rd_policy.get_action(observation, info)
-    #     observation, reward, terminated, truncated, info = env.step(action)
+    # Test RandomPolicy
+    rd_policy = RandomPolicy()
+    ep = 0
+    while ep < NUM_EPISODES:
+        action = rd_policy.get_action(observation, info)
+        observation, reward, terminated, truncated, info = env.step(action)
 
-    #     if terminated or truncated:
-    #         print(info)
-    #         observation, info = env.reset(seed=ep)
-    #         ep += 1
+        if terminated or truncated:
+            print(info)
+            observation, info = env.reset(seed=ep)
+            ep += 1
 
     # Uncomment the following code to test your policy
-    # Reset the environment
+    # # Reset the environment
     # observation, info = env.reset(seed=42)
     # print(info)
 
-    # policy2313622_2312097_2310543_2312420_2311100 = Policy2313622_2312097_2310543_2312420_2311100(policy_id=2)
+    # policy2210xxx = Policy2210xxx(policy_id=1)
     # for _ in range(200):
-    #     action = policy2313622_2312097_2310543_2312420_2311100.get_action(observation, info)
+    #     action = policy2210xxx.get_action(observation, info)
     #     observation, reward, terminated, truncated, info = env.step(action)
     #     print(info)
 
     #     if terminated or truncated:
     #         observation, info = env.reset()
-            
-        # # Reset the environment
-    observation, info = env.reset(seed=42)
-
-    # Test RandomPolicy
-    policy = Policy2313622_2312097_2310543_2312420_2311100(policy_id=3)
-    ep = 0
-    while ep < NUM_EPISODES:
-        action = policy.get_action(observation, info)
-        observation, reward, terminated, truncated, info = env.step(action)
-
-        if terminated or truncated:
-            print(info['trim_loss'])
-            observation, info = env.reset(seed=ep)
-            ep += 1
 
 env.close()
