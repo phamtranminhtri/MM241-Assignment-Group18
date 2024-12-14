@@ -1,6 +1,7 @@
 from policy import Policy
 from scipy.optimize import linprog
 from itertools import product
+import numpy as np
 
 class Policy2310270_2310779_2310348_2314057_2310655(Policy):
     def __init__(self, policy_id=1):
@@ -9,16 +10,16 @@ class Policy2310270_2310779_2310348_2314057_2310655(Policy):
 
         # Student code here
         if policy_id == 1:
-            self.description = "Brach_And_Price_Policy"
+            self.policy = BranchAndPricePolicy()
         elif policy_id == 2:
-            self.description = "First_Fit_Decreasing_Policy"
+            self.policy = FirstFitDecreasingPolicy()
 
     def get_action(self, observation, info):
         # Student code here
         if self.policy_id == 1:
-            return self.BranchAndPricePolicy(observation)
+            return self.policy.get_action(observation, info)
         elif self.policy_id == 2:
-            return self.FirstFitDecreasingPolicy(observation)
+            return self.policy.get_action(observation, info)
 
 class BranchAndPricePolicy(Policy):
     def __init__(self):
@@ -32,9 +33,10 @@ class BranchAndPricePolicy(Policy):
         pos_x, pos_y = 0, 0
 
         # Bước 1: Khởi tạo bài toán chính
-        demand = observation["demand"]
-        dimensions = observation["dimensions"]
-        stock_dimensions = observation["stock_dimensions"]
+        demand = np.array([prod["quantity"] for prod in list_prods])
+        dimensions = [prod["size"]for prod in list_prods]
+        stocks = observation["stocks"]
+        stock_dimensions = self._get_stock_size_(stocks[0])
         patterns = self.generate_initial_patterns(demand, dimensions, stock_dimensions)
 
         while True:
@@ -68,7 +70,7 @@ class BranchAndPricePolicy(Policy):
         patterns = []
         for i, (w, h) in enumerate(dimensions):
             num_items = min(W // w, H // h)
-            pattern = [0] * len(demand)
+            pattern = [0] * len(dimensions)
             pattern[i] = num_items
             patterns.append(pattern)
         return patterns
@@ -79,8 +81,7 @@ class BranchAndPricePolicy(Policy):
 
         # Hàm mục tiêu
         c = [1] * num_patterns
-
-        # Ràng buộc
+# Ràng buộc
         A = [[patterns[j][i] for j in range(num_patterns)] for i in range(num_items)]
         b = demand
 
@@ -88,7 +89,7 @@ class BranchAndPricePolicy(Policy):
         result = linprog(c, A_eq=A, b_eq=b, bounds=(0, None), method='highs')
 
         x = result.x  # Nghiệm của bài toán
-        dual_prices = result.dual_values  # Giá kép
+        dual_prices = np.zeros(num_items)
         return x, dual_prices
 
     def solve_pricing_problem(self, dual_prices, dimensions, stock_dimensions):
@@ -156,8 +157,7 @@ class BranchAndPricePolicy(Policy):
                 break
 
         return {"stock_idx": stock_idx, "size": prod_size, "position": (pos_x, pos_y)}
-
-    def objective_value(self, solution):
+def objective_value(self, solution):
         return sum(solution)
 
 class FirstFitDecreasingPolicy(Policy):
@@ -213,4 +213,3 @@ class FirstFitDecreasingPolicy(Policy):
                     break
 
         return {"stock_idx": stock_idx, "size": prod_size, "position": (pos_x, pos_y)}
-
