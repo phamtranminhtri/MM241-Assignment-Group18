@@ -3,15 +3,18 @@ from policy import Policy
 
 class Policy2210547_2212643_2212069_2213293_2210644(Policy):
     def __init__(self,policy_id, population_size=50, generations=100, mutation_rate=0.01, epsilon=0.1):
-        self.policy_id = policy_id
-        self.population_size = population_size
-        self.generations = generations
-        self.mutation_rate = mutation_rate
+       self.policy_id = policy_id
+       if self.policy_id == 1:
         """
         Khởi tạo chính sách Best Fit Decreasing với tham số epsilon.
         """
         self.epsilon = epsilon  # Sai số gần đúng
         self.actions = []  # Danh sách các hành động sẽ thực hiện
+
+       if self.policy_id == 2:
+        self.population_size = population_size
+        self.generations = generations
+        self.mutation_rate = mutation_rate
 
 
 
