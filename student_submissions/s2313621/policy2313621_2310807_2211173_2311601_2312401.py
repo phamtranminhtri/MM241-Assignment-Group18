@@ -222,7 +222,7 @@ Do không truyền observation vào hàm get_action, nên trước khi hoàn th�
 nếu bằng 1 thì gán action = False để khởi tạo lại.
 '''
 
-class Policy2313621(Policy):
+class Policy2313621_2310807_2211173_2311601_2312401(Policy):
     def __init__(self, policy_id=1):
         assert policy_id in [1, 2], "Policy ID must be 1 or 2"
         self.policy_1 = False
