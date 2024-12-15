@@ -270,7 +270,7 @@ def heuristic_2d_csp(given_rectangles, sheets, heuristic_type_idx=1, sort_mode_i
                 }
     return result
 
-class Policy2352641(Policy):
+class Policy2352641_2352742_2353035_2353041(Policy):
     """
     Policy implementation (port) from full solution to single solution giver.
     
