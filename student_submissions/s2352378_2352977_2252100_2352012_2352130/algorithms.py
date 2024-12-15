@@ -21,18 +21,16 @@ class BranchAndBound(Policy):
         self.original_stock_list = None;
 
     def get_action(self, observation, info):        
-        # If there are still actions in the list then return the action
-        if self.list_product_actions:
-            stock_index = self.list_stock_actions.pop(0);
-            product_size = observation["products"][self.list_product_actions.pop(0)]["size"];
-            pos_x, pos_y = self.list_offset_actions.pop(0);
-            
-            return {"stock_idx": stock_index, "size": product_size, "position": (pos_x, pos_y)}
-        # Otherwise, generate a new list of actions
-        else:
+        # If there are no action in the list then generate the list of actions
+        if not self.list_product_actions or info["filled_ratio"] == 0.0:
             self.generate_list_actions(observation, info);
-            
-            return self.get_action(observation, info);
+
+        # Get the action from the list
+        stock_index = self.list_stock_actions.pop(0);
+        product_size = observation["products"][self.list_product_actions.pop(0)]["size"];
+        pos_x, pos_y = self.list_offset_actions.pop(0);
+        
+        return {"stock_idx": stock_index, "size": product_size, "position": (pos_x, pos_y)}
 
 
     # Generate list of actions
@@ -251,7 +249,7 @@ class BranchAndBound(Policy):
             
             # If the stock1 wasted area is greater than the maximum wasted area then fathom the branch stock2
             if stock1_wasted_area < max_wasted_area:
-                # the new maximum wasted area = maximum wasted area - stock1 wasted area
+                # the new maximum wasted area = maximum wasted area - stock1 wasted area, which is used for the upper bound of stock2
                 stock2_wasted_area, stock2_placed_result = self.try_place_product(stock2, max_wasted_area - stock1_wasted_area, max(0, min_wasted_area - stock1_wasted_area), -1);
                 
                 if stock1_wasted_area + stock2_wasted_area < max_wasted_area:
