@@ -2,7 +2,7 @@ from policy import Policy
 import numpy as np
 import random
 
-class Policy2210xxx(Policy):
+class Policy2213045_2212943_2212942_2212421(Policy):
     def __init__(self, policy_id=1):
         assert policy_id in [1, 2], "Policy ID must be 1 or 2"
 
