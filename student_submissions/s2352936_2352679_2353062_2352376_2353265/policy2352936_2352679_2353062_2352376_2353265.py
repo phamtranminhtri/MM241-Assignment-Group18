@@ -12,7 +12,7 @@ class Policy2352936_2352679_2353062_2352376_2353265(Policy):
             self.using_FFD = False
 
         self.first_action = True    # to check if first call get_action
-        self.saved_stocks = []      # to save stock
+        self.saved_stocks = []      # to save stocks
         self.prods = []             # to save product
 
         # for easier manage and sort the 2 list above
@@ -456,5 +456,25 @@ class Policy2352936_2352679_2353062_2352376_2353265(Policy):
             self.current_stock_idx += 1
             self.current_product_idx = 0
 
-        # If all stocks and products are processed, return the default action
+        # If all stocks and products are processed, reset all param and return default action
+        self.first_action = True    # to check if first call get_action
+        self.saved_stocks = []      # to save stock
+        self.first_action_stocks = [] # to indicate first action
+        self.prods = []             # to save product
+
+        # for easier manage and sort the 2 list above
+        self.used_stocks_idx = []
+        self.not_used_stocks_idx = []
+        self.is_used = []
+        self.available_area = []
+        self.prod_idx = []
+        self.dist_prod_idx = []
+
+        # to save info of product in stock
+        self.prods_in_stocks_info = [] # info của các product trong stock
+
+        # variables for tracking state
+        self.current_stock_idx = 0
+        self.current_product_idx = 0
+
         return {"stock_idx": -1, "size": [-1, -1], "position": (-1, -1)}
