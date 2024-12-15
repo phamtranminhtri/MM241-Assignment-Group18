@@ -6,7 +6,7 @@ from scipy.optimize import linprog
 
 class Policy2212940_2212497_2212272_2212288_2212982(Policy):
     def __init__(self, policy_id=1):
-        assert policy_id in [1, 2, 3], "Policy ID must be 1 or 2"
+        assert policy_id in [1, 2], "Policy ID must be 1 or 2"
 
         # Student code here
         self.policy_id = policy_id
