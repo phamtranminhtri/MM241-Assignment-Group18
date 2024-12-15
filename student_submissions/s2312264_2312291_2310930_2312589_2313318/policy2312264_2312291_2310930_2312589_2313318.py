@@ -70,10 +70,6 @@ class Policy2312264_2312291_2310930_2312589_2313318(Policy):
             self.GAMMA          = 0.99
             self.net            = Net()
             self.optim          = torch.optim.Adam(self.net.parameters(), lr = 0.0001)
-            self.actions        = []
-            self.rewards        = []
-            self.s = []
-            self.log_probs      = []
         
             abs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model.pth")
             checkpoint = torch.load(abs_path, weights_only=True)
@@ -167,7 +163,6 @@ class Policy2312264_2312291_2310930_2312589_2313318(Policy):
                 self.step += 1
                 self.stock = np.array(stocks[self.curIdx])
             if (self.overfit >= 10):
-                self.s.append(sum(self.rewards))
                 self.step += 1
                 self.curIdx += 1
                 self.overfit = 0
@@ -235,7 +230,6 @@ class Policy2312264_2312291_2310930_2312589_2313318(Policy):
             else:
                 self.overfit += 1
             
-            self.rewards.append(r)
             return ({"stock_idx": self.curIdx, "size": (prod_w, prod_h), "position": (pos_x, pos_y)})
         elif (self.pID == 3):
             stocks = observation["stocks"]
@@ -302,31 +296,6 @@ class Policy2312264_2312291_2310930_2312589_2313318(Policy):
                 }
 
             return {"stock_idx": -1, "size": (0, 0), "position": (0, 0)}
-    # def learn(self, ep = 1):
-        # Caculate G(t) = R(t+1) + gamma * G(t+1)
-        # print(len(self.actions))
-        cum_rewards = np.zeros_like(self.rewards)
-        reward_len = len(self.rewards)
-        for j in reversed(range(reward_len)):
-            cum_rewards[j] = self.rewards[j] + (cum_rewards[j+1]*self.GAMMA if j+1 < reward_len else 0)
-        #cum_rewards = np.array(self.rewards)
-        cum_rewards = (cum_rewards - np.min(cum_rewards, axis = -1)) / (np.max(cum_rewards, axis = -1) - np.min(cum_rewards,axis=-1) + 1e-8)
-        #
-        # Train (optimize parameters)
-        #
-        cum_rewards = torch.tensor(cum_rewards, dtype=torch.float)
-        self.optim.zero_grad()
-        # logits = self.net.forward(states)
-        # Calculate negative log probability (-log P) as loss.
-        # Cross-entropy loss is -log P in categorical distribution. (see above)
-        # log_probs = -F.cross_entropy(logits, actions, reduction='none')
-        log_probs = torch.stack(self.log_probs) 
-        loss = -log_probs* cum_rewards
-        loss.sum().backward()
-        self.optim.step()
-        
-        # Output total rewards in episode (max 500)
-        self.init()
 
     def extract_stocks(self, materials):
         stocks = []
