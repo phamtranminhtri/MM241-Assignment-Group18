@@ -237,29 +237,34 @@ class BestFit(Policy):
         # Try placing the product in each stock
         for stock_idx, stock in sorted_stocks:
             for current_product in products:
-                stock_w, stock_h = self._get_stock_size_(stock)
+                prod_rotated = {
+                        "size": [current_product['size'][1], current_product['size'][0]],
+                        "quantity": current_product['quantity']
+                }
+                for prod in [current_product, prod_rotated]:
+                    stock_w, stock_h = self._get_stock_size_(stock)
 
-                # Skip stocks that are too small for the current product
-                if stock_w < min(current_product['size']) or stock_h < min(current_product['size']):
-                    continue
+                    # Skip stocks that are too small for the current product
+                    if stock_w < min(prod['size']) or stock_h < min(prod['size']):
+                        continue
 
-                # Find the best position to place the product in the stock
-                pos, size, waste = self._find_best_position(
-                    stock_idx, stock, current_product['size']
-                )
+                    # Find the best position to place the product in the stock
+                    pos, size, waste = self._find_best_position(
+                        stock_idx, stock, prod['size']
+                    )
 
-                # Update best action if current placement has lower waste
-                if pos and waste < min_global_waste:
-                    min_global_waste = waste
-                    best_action = {
-                        "stock_idx": stock_idx,
-                        "size": np.array(size),
-                        "position": np.array(pos)
-                    }
+                    # Update best action if current placement has lower waste
+                    if pos and waste < min_global_waste:
+                        min_global_waste = waste
+                        best_action = {
+                            "stock_idx": stock_idx,
+                            "size": np.array(size),
+                            "position": np.array(pos)
+                        }
 
-                    # Early exit if the waste is below the threshold
-                    if waste < self.min_waste_threshold:
-                        break
+                        # Early exit if the waste is below the threshold
+                        if waste < self.min_waste_threshold:
+                            break
 
             # If a valid action is found, update the stock usage and filled spaces
             if best_action:

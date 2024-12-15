@@ -25,39 +25,44 @@ class GenerateColumn(Policy):
 
         # Try to create patterns for each product
         for i, prod in sorted_products:
-            if prod['quantity'] > 0:
-                stock_w, stock_h = stock_size
-                width, height = prod['size']
+            rotate_products = {
+                'size': (prod['size'][1], prod['size'][0]),
+                'quantity': prod['quantity']
+            }
+            for prod in [prod, rotate_products]:
+                if prod['quantity'] > 0:
+                    stock_w, stock_h = stock_size
+                    width, height = prod['size']
 
-                # Skip if product is too large for the stock
-                if width > stock_w or height > stock_h:
-                    continue
+                    # Skip if product is too large for the stock
+                    if width > stock_w or height > stock_h:
+                        continue
 
-                # Initialize pattern and remaining space
-                pattern = [0] * len(products)
-                remaining_w, remaining_h = stock_w, stock_h
-                max_pieces_w = remaining_w // width
-                max_pieces_h = remaining_h // height
-                pieces = min(prod['quantity'], max_pieces_w * max_pieces_h)
+                    # Initialize pattern and remaining space
+                    pattern = [0] * len(products)
+                    remaining_w, remaining_h = stock_w, stock_h
+                    max_pieces_w = remaining_w // width
+                    max_pieces_h = remaining_h // height
+                    pieces = min(prod['quantity'], max_pieces_w * max_pieces_h)
 
-                if pieces > 0:
-                    pattern[i] = pieces
+                    if pieces > 0:
+                        pattern[i] = pieces
 
-                    # Fill remaining space with other products
-                    for j, other_prod in sorted_products:
-                        if j != i and other_prod['quantity'] > 0:
-                            w2, h2 = other_prod['size']
-                            if w2 <= remaining_w and h2 <= remaining_h:
-                                max_other = min(
-                                    other_prod['quantity'],
-                                    (remaining_w // w2) * (remaining_h // h2)
-                                )
-                                if max_other > 0:
-                                    pattern[j] = max_other
-                                    remaining_w -= w2 * max_other
-                                    remaining_h -= h2 * max_other
+                        # Fill remaining space with other products
+                        for j, other_prod in sorted_products:
+                            if j != i and other_prod['quantity'] > 0:
+                                w2, h2 = other_prod['size']
+                                if w2 <= remaining_w and h2 <= remaining_h:
+                                    max_other = min(
+                                        other_prod['quantity'],
+                                        (remaining_w // w2) * (remaining_h // h2)
+                                    )
+                                    if max_other > 0:
+                                        pattern[j] = max_other
+                                        remaining_w -= w2 * max_other
+                                        remaining_h -= h2 * max_other
 
-                    patterns.append(pattern)
+                        patterns.append(pattern)
                     
         return patterns
 
