@@ -65,7 +65,7 @@ class DQNetwork(nn.Module):
         return stock_idx, cut_position
 
 
-class Policy2210xxx(Policy):
+class Policy231215_2311197_2311111_2310689_2313323(Policy):
     def __init__(
             self, 
             policy_id = 1,
