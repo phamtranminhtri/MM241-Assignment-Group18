@@ -20,7 +20,7 @@ class Policy2310013_2310038_2310016_2310641(Policy):
 
     def get_action(self,observation,info):
         if (self.strategy == 1):
-            return self.BDSP(observation,info)
+            return self.BSBP(observation,info)
         elif (self.strategu == 2):
             return self.MILP(observation,info)
     ###############################################################
@@ -107,7 +107,7 @@ class Policy2310013_2310038_2310016_2310641(Policy):
     # POLICY 1
     ###############################################################
 
-    def BDSP(self, observation, info):
+    def BSBP(self, observation, info):
             stocks = np.stack(observation["stocks"])
             checksummer = self.check_sum(stocks) # observing if the environment has changed to correctly manage cache
             list_prods = observation["products"]
