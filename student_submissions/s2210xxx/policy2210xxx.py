@@ -171,7 +171,6 @@ def Evaluate_Function(policy2210xxx,NUM_EPISODES,env,initial_inc):
     ##############################################################################################################
     ##############################################################################################################
     ##############################################################################################################
-    max_per_function_flag = 1
 def waste_func(action_array,bin_used_array,observation):
     area_bin = 0
     area_demand = 0
@@ -189,7 +188,7 @@ def waste_func(action_array,bin_used_array,observation):
             area_bin = area_bin + stock_w * stock_h
     return area_bin - area_demand
 def per_function (demand,stock,x,y,action_array,bin_used_array,observation,quantity_array):
-    global public_min, min_action_array,public_array,debug_counting,max_per_function_flag
+    global public_min, min_action_array,public_array,debug_counting
     global max_demand
     global per_function_flag
     debug_counting+=1
