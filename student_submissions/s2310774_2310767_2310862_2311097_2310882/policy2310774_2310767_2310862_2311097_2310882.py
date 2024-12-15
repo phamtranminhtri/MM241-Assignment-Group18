@@ -7,7 +7,7 @@ class Policy2310774_2310767_2310862_2311097_2310882(Policy):
 
         # Student code here
         self.prod_area=0
-        if policy_id == 1: #BFDH
+        if policy_id == 1: #FFDH
             self.id=1
             pass
         elif policy_id == 2: #NFDH
@@ -25,18 +25,17 @@ class Policy2310774_2310767_2310862_2311097_2310882(Policy):
         if self.id==1:
             list_prods = observation["products"]
             used_stocks = []
-            min_waste_area = float("inf")
             # Sắp xếp các product theo diện tích giảm dần
             sorted_prods = sorted(
                 list_prods,
                 key=lambda prod: prod["size"][0] * prod["size"][1],
                 reverse=True
             )
-            
+
             prod_size = [0, 0]
             stock_idx = -1
             pos_x, pos_y = 0, 0
-            
+
             for prod in sorted_prods:
                 if prod["quantity"] > 0:
                     prod_size = prod["size"]
@@ -50,12 +49,9 @@ class Policy2310774_2310767_2310862_2311097_2310882(Policy):
                             for x in range(stock_w - prod_w + 1):
                                 for y in range(stock_h - prod_h + 1):
                                     if self._can_place_(stock, (x, y), prod_size):
-                                        waste_area = ((stock_w - (x + prod_w)) * stock_h + (stock_h - (y + prod_h)) * stock_w)
-                                        if waste_area < min_waste_area:
                                             pos_x, pos_y = x, y
-                                            min_waste_area = waste_area
                                             break
-                                        
+
                                 if pos_x is not None and pos_y is not None:
                                     break
                             if pos_x is not None and pos_y is not None:
@@ -67,13 +63,10 @@ class Policy2310774_2310767_2310862_2311097_2310882(Policy):
                             for x in range(stock_w - prod_h + 1):
                                 for y in range(stock_h - prod_w + 1):
                                     if self._can_place_(stock, (x, y), prod_size[::-1]):
-                                        waste_area = ((stock_w - (x + prod_w)) * stock_h + (stock_h - (y + prod_h)) * stock_w)
-                                        if waste_area < min_waste_area:
-                                            min_waste_area = waste_area
                                             prod_size = prod_size[::-1]
                                             pos_x, pos_y = x, y
                                             break
-                                        
+
                                 if pos_x is not None and pos_y is not None:
                                     break
                             if pos_x is not None and pos_y is not None:
@@ -84,7 +77,6 @@ class Policy2310774_2310767_2310862_2311097_2310882(Policy):
                                 used_stocks.append(stock_idx)
 
                     if pos_x is not None and pos_y is not None:
-                        self.prod_area += prod_size[0] * prod_size[1]
                         break
 
             return {"stock_idx": stock_idx, "size": prod_size, "position": (pos_x, pos_y)}
