@@ -20,7 +20,7 @@ class Policy2310774_2310767_2310862_2311097_2310882(Policy):
     def get_action(self, observation, info):
         # Student code here
         '''
-        Best Fit Decreasing Height:
+        First Fit Decreasing Height:
         '''
         if self.id==1:
             list_prods = observation["products"]
