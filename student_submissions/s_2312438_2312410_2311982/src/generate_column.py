@@ -11,25 +11,36 @@ class GenerateColumn(Policy):
         self.new_game = True        # Track new game
     
     def reset(self):
+        """Reset the environment and any necessary parameters."""
         self.patterns.clear()
         self.used_patterns.clear()
         self.current_stock = 0
         self.used_positions.clear()
 
     def _generate_patterns(self, products, stock_size):
-        """Generate cutting patterns for a stock based on available products."""
+        """
+        Generate feasible cutting patterns for the current stock
+        based on available products.
         
+        Args:
+            products (list): List of product dictionaries with size and quantity.
+            stock_size (tuple): Width and height of the stock.
+        
+        Returns:
+            list: List of patterns, where each pattern is an array of quantities.
+        """
         # Sort products by area (largest to smallest)
         sorted_products = sorted(enumerate(products), key=lambda x: -x[1]['size'][0] * x[1]['size'][1])
         patterns = []
 
         # Try to create patterns for each product
-        for i, prod in sorted_products:
+        for i, prod_src in sorted_products:
+            # Rotate the product to create a new pattern
             rotate_products = {
                 'size': (prod['size'][1], prod['size'][0]),
                 'quantity': prod['quantity']
             }
-            for prod in [prod, rotate_products]:
+            for prod in [prod_src, rotate_products]:
                 if prod['quantity'] > 0:
                     stock_w, stock_h = stock_size
                     width, height = prod['size']
@@ -39,8 +50,9 @@ class GenerateColumn(Policy):
                         continue
 
                     # Initialize pattern and remaining space
-                    pattern = [0] * len(products)
-                    remaining_w, remaining_h = stock_w, stock_h
+                    pattern = [0] * len(products)              
+                    remaining_w, remaining_h = stock_w, stock_h 
+                    # Calculate maximum number of pieces that can be cut
                     max_pieces_w = remaining_w // width
                     max_pieces_h = remaining_h // height
                     pieces = min(prod['quantity'], max_pieces_w * max_pieces_h)
@@ -52,6 +64,7 @@ class GenerateColumn(Policy):
                         for j, other_prod in sorted_products:
                             if j != i and other_prod['quantity'] > 0:
                                 w2, h2 = other_prod['size']
+                                # Check if the other product can fit in the remaining space
                                 if w2 <= remaining_w and h2 <= remaining_h:
                                     max_other = min(
                                         other_prod['quantity'],
@@ -63,11 +76,20 @@ class GenerateColumn(Policy):
                                         remaining_h -= h2 * max_other
 
                         patterns.append(pattern)
-                    
+
         return patterns
 
     def get_action(self, observation, info):
-        """Get the action to take based on the current observation."""
+        """
+        Determine the next action based on the current state of the game.
+        
+        Args:
+            observation (dict): Includes "stocks" (list of stocks) and "products" (list of products).
+            info (dict): Additional game-related information.
+        
+        Returns:
+            dict: Action dictionary specifying stock index, product size, and placement position.
+        """
         # If it's a new game, reset the environment and start fresh
         if self.new_game:
             self.reset()  # Reset the environment or any necessary parameters
@@ -152,7 +174,16 @@ class GenerateColumn(Policy):
         }
     
     def _find_feasible_positions(self, stock, product_size):
-        """Find all feasible positions where a product can be placed on a stock."""
+        """
+        Find valid positions on a stock where a product can be placed.
+        
+        Args:
+            stock (dict): Stock properties.
+            product_size (tuple): Width and height of the product.
+        
+        Returns:
+            list: List of feasible positions (x, y) for placement.
+        """
         
         stock_w, stock_h = self._get_stock_size_(stock)
         prod_w, prod_h = product_size
