@@ -18,8 +18,6 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
         self.stock_placed = []
         self.iteration = 0
         self.policy_id = policy_id
-        self.maxratio = -1
-        self.maxstockidx = -1
 
     def reset(self):
         self.current_patterns = []
@@ -149,7 +147,7 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
                     return self.action_queue.pop(0)
 
                 self.iteration += 1
-                self.stock_idx = np.random.randint(0, 99)
+                self.stock_idx = np.random.randint(0, len(observation["stocks"]))
                 if self.stock_idx in self.stock_placed:
                     self.iteration -= 1
                     continue
