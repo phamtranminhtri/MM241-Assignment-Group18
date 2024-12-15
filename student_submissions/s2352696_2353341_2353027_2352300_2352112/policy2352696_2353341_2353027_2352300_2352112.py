@@ -18,6 +18,8 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
         self.stock_placed = []
         self.iteration = 0
         self.policy_id = policy_id
+        self.maxratio = -1
+        self.maxstockidx = -1
 
     def reset(self):
         self.current_patterns = []
@@ -32,6 +34,7 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
         self.check_100 = False
         self.last_check = False
         self.stock_placed = []
+        self.iteration = 0
     def _get_stock_size_(self, stock):
         stock = np.atleast_2d(stock)
         stock_w, stock_h = stock.shape
@@ -50,12 +53,12 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
     def _solve_master_problem(self, demand_vector):
         num_patterns = len(self.current_patterns)
         cvec = np.ones(num_patterns)
-    
+
         A_eq = np.zeros((self.num_products, num_patterns))
 
         for j, pattern in enumerate(self.current_patterns):
             A_eq[:, j] = pattern['counts']
-        
+
         b_eq = demand_vector
         result = linprog(cvec, A_eq=A_eq, b_eq=b_eq, method='highs', bounds=(0, None))
 
@@ -64,7 +67,7 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
             self.master_solution = result["x"]
         else:
             raise ValueError("Master problem did not converge.")
-        
+
     def _solve_subproblem(self):
         num_products = self.num_products
         stock_w, stock_h = self.stock_size
@@ -80,7 +83,7 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
             area_i = w_i * h_i
             unit_value = u_i / area_i if area_i > 0 else 0
             unit_values.append((unit_value, i))
-        
+
         unit_values.sort(key=lambda x: x[0], reverse=True)
 
         stock = np.full((stock_w, stock_h), fill_value=-1, dtype=int)
@@ -88,7 +91,7 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
         counts = np.zeros(num_products, dtype=int)
 
         placements = []
-        
+
         for unit_value, i in unit_values:
             product = self.demands[i]
             w_i, h_i = product["size"]
@@ -113,7 +116,7 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
                         break
                 if not placed:
                     break
-        
+
         reduced_cost = 1 - np.dot(dual_values, counts)
 
         if reduced_cost < -self.epsilon:
@@ -138,31 +141,43 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
         return stock_w * stock_h
 
     def get_action(self, observation, info):
+        if info["trim_loss"] == 1:
+            self.reset()
         if self.policy_id == 1:
             while True:
                 if self.action_queue:
                     return self.action_queue.pop(0)
-                
+
                 self.iteration += 1
                 self.stock_idx = np.random.randint(0, 99)
                 if self.stock_idx in self.stock_placed:
+                    self.iteration -= 1
                     continue
                 # Reset current patterns
                 self.current_patterns = []
-
+                # Get demands and number of products
                 stock_tuple = observation["stocks"]
                 stock_list = list(enumerate(stock_tuple))
                 # Sort stocks by area in descending order
-                stock_list = sorted(
-                    stock_list,
-                    key=lambda x: self._get_stock_area_(x[1]),
-                    reverse=False
-                )
-
+                #print(self.iteration)
+                if self.iteration >= 8 * len(stock_list):
+                    self.check_100 = True
+                    stock_list = sorted(
+                        stock_list,
+                        key=lambda x: self._get_stock_area_(x[1]),
+                        reverse=False
+                    )
+                    self.stock_idx = 0
+                    while True:
+                        if self.stock_idx in self.stock_placed:
+                            self.stock_idx += 1
+                            continue
+                        else:
+                            break
                 self.demands = observation["products"]
                 self.num_products = len(self.demands)
                 demands_vector = np.array([product["quantity"] for product in self.demands])
-                
+
                 if not self.current_patterns:
                     for i in range(self.num_products):
                         if(self.demands[i]["quantity"] == 0):
@@ -188,7 +203,7 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
                 x = self.master_solution
                 if x is None or len(x) == 0:
                     return {'stock_idx': -1, 'size': [0, 0], 'position': [0, 0]}
-                
+
                 Area_array = np.zeros(len(self.current_patterns))
 
                 for i in range(len(self.current_patterns)):
@@ -199,27 +214,28 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
                     Area_array[i] = area_i
 
                 pattern_idx = np.argmax(Area_array)
-                
+
                 a = Area_array[pattern_idx] / (self.stock_size[0] * self.stock_size[1])
                 selected_pattern = self.current_patterns[pattern_idx]
                 placements = selected_pattern["placements"]
                 self.action_queue = []
-                
+
                 #print(self.stock_idx)
 
-                
+                length = len(stock_list)
+
                 if placements == []:
                     continue
-                if a < 0.9 and self.iteration < 200:
+                if a < 0.9 and self.iteration < 2 * length:
                     continue
-                if a < 0.85 and self.iteration >= 200 and self.iteration < 400:
+                if a < 0.85 and self.iteration >= 2 * length and self.iteration < 4 * length:
                     continue
-                if a < 0.8 and self.iteration >= 400 and self.iteration < 600:
+                if a < 0.8 and self.iteration >= 4 * length and self.iteration < 6 * length:
                     continue
-                if a < 0.75 and self.iteration >= 600 and self.iteration < 800: 
+                if a < 0.75 and self.iteration >= 6 * length and self.iteration < 8 * length: 
                     continue
                 self.stock_placed.append(self.stock_idx)
-                
+
                 for placement in placements:
                     i, xi, yi, w, h = placement
                     self.action_queue.append({
@@ -227,37 +243,11 @@ class Policy2352696_2353341_2353027_2352300_2352112(Policy):
                         "size": [w, h],
                         "position": [xi, yi]
                     })
-
-                # a = Area_array[pattern_idx] / (self.stock_size[0] * self.stock_size[1])
-                # if a < 0.9 and (self.check_100) == False:
-                #     continue
-                    
-
-                # selected_pattern = self.current_patterns[pattern_idx]
-                # placements = selected_pattern["placements"]
-
-                # self.action_queue = []
-
-                # if self.stock_idx == 40 and (self.check_100) == True:
-                #     self.last_check = True
-                #     self.stock_idx = 99
-                #     continue
-                # if placements == [] and (self.check_100) == True:
-                #     continue
-                # if self.check_100 == True and a <0.85 and self.last_check == False:
-                #     continue
-                # for placement in placements:
-                #     i, xi, yi, w, h = placement
-                #     self.action_queue.append({
-                #         "stock_idx": stockidxreturn,
-                #         "size": [w, h],
-                #         "position": [xi, yi]
-                #     })
-                
                 if self.action_queue:
                     return self.action_queue.pop(0)
                 else:
                     return {'stock_idx': -1, 'size': [0, 0], 'position': [0, 0]}
+                
         elif self.policy_id == 2:
             list_prods = observation["products"]
         # Sort products by area in descending order
