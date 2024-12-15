@@ -19,10 +19,8 @@ class Policy2310774_2310767_2310862_2311097_2310882(Policy):
 
     def get_action(self, observation, info):
         # Student code here
-        '''
-        First Fit Decreasing Height:
-        '''
         if self.id==1:
+            # First Fit Decreasing Height:
             list_prods = observation["products"]
             used_stocks = []
             # Sắp xếp các product theo diện tích giảm dần
@@ -80,11 +78,8 @@ class Policy2310774_2310767_2310862_2311097_2310882(Policy):
                         break
 
             return {"stock_idx": stock_idx, "size": prod_size, "position": (pos_x, pos_y)}
-        
-        '''
-        Next Fit Decreasing Height:
-        '''
         elif self.id==2:
+            # Next Fit Decreasing Height:
             terminate=True
             for prod in self.sort_prods:
                 if prod["quantity"] > 0: 
