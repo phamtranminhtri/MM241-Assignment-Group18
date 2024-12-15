@@ -10,14 +10,6 @@ class Policy2353227_2352417_2353153_2352975_2352303(Policy):
             
         elif policy_id == 2:
             self.policy_id = 2
-    def _find_position(self, stock, prod_size):
-                stock_w, stock_h = self._get_stock_size_(stock)
-                prod_w, prod_h = prod_size
-                for x in range(stock_w - prod_w + 1):
-                    for y in range(stock_h - prod_h + 1):
-                        if self._can_place_(stock, (x, y), (prod_w, prod_h)):
-                            return x, y
-                return None, None
     
     def get_action(self, observation, info):
         # Student code here
